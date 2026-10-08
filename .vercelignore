@@ -1,0 +1,19 @@
+# Fichiers à NE PAS envoyer sur Vercel
+
+# Secrets : les identifiants se configurent dans Vercel > Settings > Environment Variables
+.env
+.env.*
+
+# Dépendances : Vercel exécute "composer install" lui-même à partir de composer.lock
+/vendor
+
+# Fichiers inutiles en production
+.git
+.gitignore
+.htaccess
+node_modules
+.DS_Store
+Thumbs.db
+*.log
+*.sql
+*.md
