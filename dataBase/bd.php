@@ -16,6 +16,55 @@
  */
 require_once __DIR__ . '/../config/env.php';
 
+function ensureMemberProfileColumns(PDO $connexion): void {
+    $columns = $connexion->query("SHOW COLUMNS FROM membre")->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!in_array('adresse', $columns, true)) {
+        $connexion->exec("ALTER TABLE membre ADD COLUMN adresse VARCHAR(255) NULL AFTER email");
+    }
+
+    if (!in_array('photo_profil', $columns, true)) {
+        $connexion->exec("ALTER TABLE membre ADD COLUMN photo_profil VARCHAR(255) NULL AFTER email");
+    }
+}
+
+function ensureDaaraInfoColumns(PDO $connexion): void {
+    // Aucune colonne de réseau n'est gérée ici : les liens de groupes sont désormais
+    // stockés séparément dans la table `group_links` pour garder le Dahira propre.
+    $columns = $connexion->query("SHOW COLUMNS FROM daara_info")->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach (['facebook_url', 'instagram_url', 'youtube_url', 'website_url'] as $column) {
+        if (in_array($column, $columns, true)) {
+            $connexion->exec("ALTER TABLE daara_info DROP COLUMN {$column}");
+        }
+    }
+}
+
+function ensureGroupLinksColumns(PDO $connexion): void {
+    $tables = $connexion->query("SHOW TABLES LIKE 'group_links'")->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($tables)) {
+        $connexion->exec(
+            "CREATE TABLE IF NOT EXISTS group_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                telegram_url VARCHAR(255) NULL,
+                whatsapp_url VARCHAR(255) NULL,
+                modifie_par VARCHAR(30) NULL,
+                date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+        return;
+    }
+
+    $columns = $connexion->query("SHOW COLUMNS FROM group_links")->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach (['telegram_url', 'whatsapp_url'] as $column) {
+        if (!in_array($column, $columns, true)) {
+            $connexion->exec("ALTER TABLE group_links ADD COLUMN {$column} VARCHAR(255) NULL");
+        }
+    }
+}
+
 function getDatabaseConnection() {
     // Une seule connexion par requête (partagée entre le gestionnaire de sessions et la page).
     static $connexion = null;
@@ -69,6 +118,9 @@ function getDatabaseConnection() {
 
     try {
         $connexion = new PDO($dsn, $username, $password, $options);
+        ensureMemberProfileColumns($connexion);
+        ensureDaaraInfoColumns($connexion);
+        ensureGroupLinksColumns($connexion);
 
         return $connexion;
     } catch (PDOException $e) {

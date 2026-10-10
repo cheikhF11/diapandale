@@ -21,7 +21,7 @@ $__path = '/' . trim(str_replace('\\', '/', $__path), '/');
 
 // ── 1. Pages PHP autorisées ─────────────────────────────────────────────────
 $__pages = [
-    'index', 'form', 'accueil', 'dashboard',
+    'index', 'form', 'accueil', 'dashboard', 'groupes',
     'admin_daara', 'admin_membres', 'verify_otp',
     'logout', 'update_online_status',
 ];

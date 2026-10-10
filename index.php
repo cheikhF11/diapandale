@@ -158,7 +158,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f3f1ee 0%, #ece7df 100%);
+            background:
+                radial-gradient(circle at top left, rgba(181, 139, 69, 0.18), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(22, 54, 79, 0.15), transparent 30%),
+                linear-gradient(135deg, #111111 0%, #181818 28%, #f3efe7 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -239,13 +242,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         .form {
-            background: linear-gradient(180deg, #ffffff 0%, #f9f7f3 100%);
-            border: 1px solid rgba(28, 57, 74, 0.12);
-            border-radius: 22px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(249,247,243,0.96) 100%);
+            border: 1px solid rgba(181, 139, 69, 0.2);
+            border-radius: 26px;
             padding: 34px 30px 26px;
-            box-shadow: 0 20px 60px rgba(18, 29, 35, 0.08), 0 8px 22px rgba(28, 57, 74, 0.06);
+            box-shadow: 0 28px 70px rgba(17,17,17,0.2), 0 10px 25px rgba(22, 54, 79, 0.08);
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(4px);
         }
         
         .form::before {
@@ -255,8 +259,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             left: 0;
             right: 0;
             height: 5px;
-            background: linear-gradient(90deg, #16364f, #2d5a74, #b38a44);
-            animation: shimmer 3s infinite;
+            background: linear-gradient(90deg, #111111, #b58b45, #d6b57f, #111111);
+            background-size: 200% 100%;
+            animation: shimmer 4s linear infinite;
         }
         
         @keyframes shimmer {
@@ -270,6 +275,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             animation: fadeIn 1s ease-out 0.3s both;
         }
         
+        .logo-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 88px;
+            height: 88px;
+            background: linear-gradient(135deg, #111111 0%, #1d1d1d 100%);
+            border: 2px solid rgba(181, 139, 69, 0.7);
+            border-radius: 50%;
+            box-shadow: 0 14px 25px rgba(181, 139, 69, 0.2);
+            margin: 0 auto 18px;
+        }
+        
         .logo-icon {
             width: 80px;
             height: 80px;
@@ -278,9 +296,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 15px;
+            margin: 0 auto;
             font-size: 40px;
             animation: rotate 10s linear infinite;
+            overflow: hidden;
         }
         .logo-icon img {
     width: 100%;
@@ -299,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         .title {
             text-align: center;
-            color: #1b2d38;
+            color: #111111;
             font-size: 30px;
             font-weight: 800;
             letter-spacing: 0.02em;
@@ -308,12 +327,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         .subtitle {
             text-align: center;
-            color: #50606b;
+            color: #5d5d5d;
             font-size: 12px;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             margin-bottom: 28px;
-            font-weight: 600;
+            font-weight: 700;
         }
         
         .error-message {
@@ -406,12 +425,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         #submit {
-            background: linear-gradient(135deg, #16364f, #214d67);
+            background: linear-gradient(135deg, #111111, #2a2a2a 60%, #b58b45);
             color: #FFFFFF;
             border: none;
             padding: 14px 18px;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 12px 22px rgba(17,17,17,0.12);
         }
         
         #submit::before {
@@ -591,13 +611,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(31, 94, 67, 0.9);
+            background: rgba(17, 17, 17, 0.9);
             color: white;
             padding: 10px;
             text-align: center;
             font-size: 12px;
-            opacity: 0.8;
+            opacity: 0.9;
             z-index: 10;
+            border-top: 2px solid rgba(181, 139, 69, 0.75);
         }
         
         /* Animation du bouton de soumission en chargement */
@@ -643,7 +664,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container">
         <form method="post" class="form" action="" id="loginForm">
             <div class="logo">
-                
+                <div class="logo-badge">
+                    <div class="logo-icon">✦</div>
+                </div>
                 <p class="title">Connexion</p>
                 <p class="subtitle">DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
             </div>

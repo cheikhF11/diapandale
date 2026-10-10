@@ -30,6 +30,10 @@ function getGlobalStats($connexion) {
         "SELECT COUNT(*) AS c FROM membre WHERE statut_en_ligne = 1 AND confirm = 1"
     )->fetch()['c'];
 
+    $stats['travailleurs'] = (int) $connexion->query(
+        "SELECT COUNT(*) AS c FROM membre WHERE profession = 'travailleur' AND confirm = 1"
+    )->fetch()['c'];
+
     return $stats;
 }
 
@@ -189,8 +193,27 @@ try {
         .charts-grid, .charts-row-2{grid-template-columns:1fr;}
     }
     @media(max-width:600px){
+        .topnav {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+        }
+        .nav-links {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .nav-btn {
+            text-align: center;
+            width: 100%;
+            padding: 9px 10px;
+        }
         .kpi-grid{grid-template-columns:1fr;}
-        .nav-links .nav-btn:not(.red){display:none;}
+        .wrap{padding:18px 12px 40px;}
+        .chart-card, .list-card{padding:16px 14px;}
+        table.dtable{min-width:520px;}
     }
 </style>
 </head>
@@ -240,6 +263,11 @@ try {
         <div class="kpi-card">
             <div class="kpi-num"><?php echo $stats['en_attente']; ?></div>
             <div class="kpi-lbl">Inscriptions en attente</div>
+            <div class="kpi-accent"></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-num"><?php echo $stats['travailleurs']; ?></div>
+            <div class="kpi-lbl">Travailleurs</div>
             <div class="kpi-accent"></div>
         </div>
     </div>

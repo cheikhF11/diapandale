@@ -20,6 +20,11 @@ function getDaaraInfo($connexion) {
     return $query->fetch(PDO::FETCH_ASSOC);
 }
 
+function getGroupLinks($connexion) {
+    $query = $connexion->query("SELECT * FROM group_links ORDER BY id DESC LIMIT 1");
+    return $query->fetch(PDO::FETCH_ASSOC);
+}
+
 function getMembersByProfession($connexion, $profession) {
     $query = $connexion->prepare(
         "SELECT id, num, prenom, nom, genre, profession_details, niveau_etude, classe, date_inscription,
@@ -52,6 +57,7 @@ try {
 
     $userInfo       = getUserInfo($connexion, $_SESSION['number']);
     $daaraInfo      = getDaaraInfo($connexion);
+    $groupLinks     = getGroupLinks($connexion);
     $stats          = getStatistics($connexion);
     updateOnlineStatus($connexion, $_SESSION['number']);
 
@@ -336,12 +342,54 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
         .empty-icon { font-size:38px; margin-bottom:10px; }
 
         /* ══ RESPONSIVE ══ */
+        @media (max-width: 900px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .brand { max-width: 60%; }
+            .brand-text small { display: none; }
+        }
+
         @media(max-width:600px){
+            .topnav {
+                height: auto;
+                padding: 12px 14px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .brand {
+                max-width: 100%;
+                width: 100%;
+            }
+            .nav-links {
+                width: 100%;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+            .nav-links .nav-btn {
+                text-align: center;
+                padding: 9px 8px;
+                font-size: 11px;
+            }
             .brand-text b { font-size:12px; }
             .stats-row { grid-template-columns:1fr 1fr; }
             .tab-btn { padding:11px 13px; font-size:12px; }
             .wrap { padding:14px 10px; }
-            .nav-links .nav-btn:not(.red) { display:none; }
+            .search-form { flex-direction: column; }
+            .s-input, .s-select, .s-btn { width: 100%; min-width: 0; }
+            .card { padding: 16px 14px; }
+            .footer {
+                position: static;
+                padding: 10px 12px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .stats-row { grid-template-columns: 1fr; }
+            .dashboard-metrics { grid-template-columns: 1fr; }
+            .nav-links { grid-template-columns: 1fr 1fr; }
+            .nav-btn.red { grid-column: 1 / -1; }
+            .tab-btn { padding: 10px 12px; }
         }
     </style>
 </head>
@@ -358,6 +406,7 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
     </div>
     <div class="nav-links">
         <a href="dashboard.php" class="nav-btn">📊 Dashboard</a>
+        <a href="groupes.php" class="nav-btn">💬 Groupes</a>
         <?php if (isset($userInfo['role']) && $userInfo['role'] === 'admin_daara'): ?>
             <a href="admin_daara.php" class="nav-btn">⚙️ Daara</a>
         <?php endif; ?>
@@ -445,6 +494,28 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
             </div>
             <?php else: ?>
             <p style="color:var(--muted)">Aucune information disponible.</p>
+            <?php endif; ?>
+        </div>
+
+        <div class="card">
+            <div class="card-title">💬 Groupes du Dahira</div>
+            <?php if (!empty($groupLinks['telegram_url']) || !empty($groupLinks['whatsapp_url'])): ?>
+                <div class="info-grid">
+                    <?php if (!empty($groupLinks['telegram_url'])): ?>
+                        <div class="info-chip">
+                            <strong>Telegram</strong>
+                            <span><a href="<?php echo htmlspecialchars($groupLinks['telegram_url']); ?>" target="_blank" rel="noopener noreferrer">Rejoindre le groupe</a></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($groupLinks['whatsapp_url'])): ?>
+                        <div class="info-chip">
+                            <strong>WhatsApp</strong>
+                            <span><a href="<?php echo htmlspecialchars($groupLinks['whatsapp_url']); ?>" target="_blank" rel="noopener noreferrer">Rejoindre le groupe</a></span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <p style="color:var(--muted)">Aucun groupe disponible pour le moment.</p>
             <?php endif; ?>
         </div>
     </div>

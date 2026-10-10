@@ -53,6 +53,7 @@ function registerUser($connexion, $data) {
     $niveauEtude = null;
     $classe = null;
     $filiere = null;
+    $photoProfil = trim((string) ($data['photo_profil'] ?? ''));
 
     if ($data['profession'] === 'travailleur') {
         $professionDetails = $data['profession_details'];
@@ -64,8 +65,8 @@ function registerUser($connexion, $data) {
     }
 
     $insertQuery = $connexion->prepare(
-        "INSERT INTO membre (num, prenom, nom, email, date_naissance, genre, profession, profession_details, niveau_etude, filiere, classe, passeword, confirm, otp_code, otp_expires_at, date_inscription)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NOW())"
+        "INSERT INTO membre (num, prenom, nom, email, adresse, photo_profil, date_naissance, genre, profession, profession_details, niveau_etude, filiere, classe, passeword, confirm, otp_code, otp_expires_at, date_inscription)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NOW())"
     );
 
     $insertQuery->execute([
@@ -73,6 +74,8 @@ function registerUser($connexion, $data) {
         $data['prenom'],
         $data['nom'],
         $data['email'],
+        $data['adresse'],
+        $photoProfil !== '' ? $photoProfil : null,
         $data['date_naissance'],
         $data['genre'],
         $data['profession'],
@@ -100,6 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $prenom = securisation($_POST['prenom'] ?? '');
     $nom = securisation($_POST['nom'] ?? '');
     $email = securisation($_POST['email'] ?? '');
+    $adresse = securisation($_POST['adresse'] ?? '');
+    $photo_profil = securisation($_POST['photo_profil'] ?? '');
     $date_naissance = securisation($_POST['date_naissance'] ?? '');
     $genre = securisation($_POST['genre'] ?? '');
     $profession = securisation($_POST['profession'] ?? '');
@@ -110,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $passeword = securisation($_POST['passeword'] ?? '');
     $confirm = securisation($_POST['confirm'] ?? '');
 
-    if (empty($num) || empty($prenom) || empty($nom) || empty($email) || empty($date_naissance) || empty($genre) || empty($profession) || empty($passeword) || empty($confirm)) {
+    if (empty($num) || empty($prenom) || empty($nom) || empty($email) || empty($adresse) || empty($date_naissance) || empty($genre) || empty($profession) || empty($passeword) || empty($confirm)) {
         $error = "Veuillez remplir tous les champs obligatoires";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Veuillez saisir une adresse e-mail valide";
@@ -135,6 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'prenom' => $prenom,
                 'nom' => $nom,
                 'email' => $email,
+                'adresse' => $adresse,
+                'photo_profil' => $photo_profil,
                 'date_naissance' => $date_naissance,
                 'genre' => $genre,
                 'profession' => $profession,
@@ -150,10 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($result['success']) && $result['success'] === true) {
                 $_SESSION['pending_verification'] = [
                     'num' => $num,
-                    'email' => $email,
-                    'otp' => $result['otp'],
-                    'email_sent' => $result['email_sent'],
-                    'debug_message' => !$result['email_sent'] ? 'Le serveur SMTP n’a pas pu envoyer le message. Le code ci-dessous est affiché pour validation locale.' : ''
+                    'email' => $email
                 ];
                 header('Location: verify_otp.php');
                 exit;

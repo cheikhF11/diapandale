@@ -284,16 +284,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <p class="helper">Le code expire après 10 minutes.</p>
-
-        <?php if (!empty($pending['debug_message'])): ?>
-            <div class="debug"><?php echo htmlspecialchars($pending['debug_message']); ?></div>
-        <?php endif; ?>
-
-        <?php if (!empty($pending['otp']) && empty($success)): ?>
-            <div class="debug">
-                <strong>Mode test :</strong> code OTP de démonstration : <strong><?php echo htmlspecialchars($pending['otp']); ?></strong>
-            </div>
-        <?php endif; ?>
     </div>
 
     <script>

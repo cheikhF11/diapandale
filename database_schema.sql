@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS membre (
     prenom              VARCHAR(100) NOT NULL,
     nom                 VARCHAR(100) NOT NULL,
     email               VARCHAR(255) NOT NULL UNIQUE,
+    adresse             VARCHAR(255) NULL,                     -- adresse complète du membre
+    photo_profil        VARCHAR(255) NULL,                     -- URL de la photo de profil
     date_naissance      DATE         NULL,
     genre               VARCHAR(20)  NOT NULL,                 -- Homme / Femme
     profession          VARCHAR(50)  NOT NULL,                 -- travailleur / etudiant / eleve
@@ -45,10 +47,14 @@ CREATE TABLE IF NOT EXISTS daara_info (
     contact             VARCHAR(100) NOT NULL,
     programme           TEXT         NOT NULL,
     description         TEXT         NULL,
-    facebook_url        VARCHAR(255) NULL,
+    modifie_par         VARCHAR(30)  NULL,
+    date_modification   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS group_links (
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
     telegram_url       VARCHAR(255) NULL,
-    youtube_url         VARCHAR(255) NULL,
-    whatsapp_url        VARCHAR(255) NULL,                  -- utilisé par admin_daara.php
+    whatsapp_url       VARCHAR(255) NULL,
     modifie_par         VARCHAR(30)  NULL,
     date_modification   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

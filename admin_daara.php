@@ -24,26 +24,27 @@ function getDaaraInfo($connexion) {
 }
 
 function updateDaaraInfo($connexion, $data, $modifiePar) {
-    $query = $connexion->prepare(
-        "INSERT INTO daara_info (theme, conferencier, date_seance, lieu, contact, programme, description, facebook_url, instagram_url, youtube_url, whatsapp_url, website_url, modifie_par) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    );
+    $fields = [
+        'theme',
+        'conferencier',
+        'date_seance',
+        'lieu',
+        'contact',
+        'programme',
+        'description',
+        'modifie_par'
+    ];
 
-    $query->execute([
-        $data['theme'],
-        $data['conferencier'],
-        $data['date_seance'],
-        $data['lieu'],
-        $data['contact'],
-        $data['programme'],
-        $data['description'],
-        $data['facebook_url'],
-        $data['instagram_url'],
-        $data['youtube_url'],
-        $data['whatsapp_url'],
-        $data['website_url'],
-        $modifiePar
-    ]);
+    $values = [];
+    foreach ($fields as $field) {
+        $values[] = $field === 'modifie_par' ? $modifiePar : ($data[$field] ?? null);
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($fields), '?'));
+    $sql = 'INSERT INTO daara_info (' . implode(', ', $fields) . ') VALUES (' . $placeholders . ')';
+
+    $query = $connexion->prepare($sql);
+    $query->execute($values);
     
     // Enregistrer dans l'historique
     $histoQuery = $connexion->prepare(
@@ -96,7 +97,7 @@ function sendDaaraInfoNotification($connexion, $data) {
         <body style='font-family: Arial, sans-serif; color: #111; line-height: 1.6;'>
             <div style='max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d0d0d0; border-radius: 12px;'>
                 <h2 style='color: #111111; margin-bottom: 16px;'>Nouvelle information du Daara</h2>
-                <p>Bonjour,</p>
+                <p>Muride Ziar nagne la,</p>
                 <p>Une nouvelle information a été publiée sur le site de la DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE.</p>
                 <p><strong>Thème :</strong> {$theme}<br>
                 <strong>Conférencier :</strong> {$conferencier}<br>
@@ -105,7 +106,9 @@ function sendDaaraInfoNotification($connexion, $data) {
                 <p><strong>Programme :</strong><br>{$programme}</p>
                 <p><strong>Description :</strong><br>{$description}</p>
                 <p>Merci de rester connecté pour suivre les prochaines activités.</p>
+                
                 <p>Cordialement,<br>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
+                 <p style='margin-top: 18px; font-weight: 700; color: #111;'>Dieuredieufe Borom Touba Diarama Mame Cheikh Ibrahima Fall</p>
             </div>
         </body>
         </html>
@@ -145,12 +148,6 @@ try {
         $contact = securisation($_POST['contact'] ?? '');
         $programme = securisation($_POST['programme'] ?? '');
         $description = securisation($_POST['description'] ?? '');
-        $facebook_url = securisation($_POST['facebook_url'] ?? '');
-        $instagram_url = securisation($_POST['instagram_url'] ?? '');
-        $youtube_url = securisation($_POST['youtube_url'] ?? '');
-        $whatsapp_url = securisation($_POST['whatsapp_url'] ?? '');
-        $website_url = securisation($_POST['website_url'] ?? '');
-
         if (empty($theme) || empty($conferencier) || empty($date_seance) || 
             empty($lieu) || empty($contact) || empty($programme)) {
             $error = "Veuillez remplir tous les champs";
@@ -163,11 +160,6 @@ try {
                 'contact' => $contact,
                 'programme' => $programme,
                 'description' => $description,
-                'facebook_url' => $facebook_url,
-                'instagram_url' => $instagram_url,
-                'youtube_url' => $youtube_url,
-                'whatsapp_url' => $whatsapp_url,
-                'website_url' => $website_url
             ];
             
             if (updateDaaraInfo($connexion, $data, $_SESSION['number'])) {
@@ -519,6 +511,49 @@ try {
             font-size: 14px;
             opacity: 0.9;
         }
+
+        @media (max-width: 900px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 24px 16px 28px;
+            }
+
+            .back-btn {
+                position: static;
+                display: inline-block;
+                margin-bottom: 14px;
+            }
+
+            .content {
+                padding: 18px 14px;
+            }
+
+            .form-section,
+            .current-info {
+                padding: 16px 14px;
+            }
+
+            .historique-section {
+                overflow-x: auto;
+            }
+
+            .historique-table {
+                min-width: 560px;
+            }
+
+            .submit-btn {
+                padding: 14px 18px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -557,7 +592,6 @@ try {
                     <p><strong>Contact :</strong> <?php echo htmlspecialchars($daaraInfo['contact']); ?></p>
                     <p><strong>Programme :</strong> <?php echo htmlspecialchars($daaraInfo['programme']); ?></p>
                     <p><strong>Description :</strong> <?php echo htmlspecialchars($daaraInfo['description'] ?? ''); ?></p>
-                    <p><strong>Réseaux :</strong> <?php echo htmlspecialchars(implode(' | ', array_filter([$daaraInfo['facebook_url'] ?? '', $daaraInfo['instagram_url'] ?? '', $daaraInfo['youtube_url'] ?? '', $daaraInfo['whatsapp_url'] ?? '', $daaraInfo['website_url'] ?? '']))); ?></p>
                 </div>
             <?php endif; ?>
             
@@ -628,36 +662,11 @@ try {
                     </div>
 
                     <div class="form-group">
-                        <label for="description">Description du Daara</label>
+                        <label for="description">Description du Dahira</label>
                         <textarea id="description" name="description" rows="3"><?php echo isset($_POST['description']) ? htmlspecialchars($_POST['description']) : ($daaraInfo ? htmlspecialchars($daaraInfo['description'] ?? '') : ''); ?></textarea>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="facebook_url">Facebook</label>
-                            <input type="url" id="facebook_url" name="facebook_url" value="<?php echo isset($_POST['facebook_url']) ? htmlspecialchars($_POST['facebook_url']) : ($daaraInfo ? htmlspecialchars($daaraInfo['facebook_url'] ?? '') : ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="instagram_url">Instagram</label>
-                            <input type="url" id="instagram_url" name="instagram_url" value="<?php echo isset($_POST['instagram_url']) ? htmlspecialchars($_POST['instagram_url']) : ($daaraInfo ? htmlspecialchars($daaraInfo['instagram_url'] ?? '') : ''); ?>">
-                        </div>
-                    </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="youtube_url">YouTube</label>
-                            <input type="url" id="youtube_url" name="youtube_url" value="<?php echo isset($_POST['youtube_url']) ? htmlspecialchars($_POST['youtube_url']) : ($daaraInfo ? htmlspecialchars($daaraInfo['youtube_url'] ?? '') : ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="whatsapp_url">WhatsApp</label>
-                            <input type="url" id="whatsapp_url" name="whatsapp_url" value="<?php echo isset($_POST['whatsapp_url']) ? htmlspecialchars($_POST['whatsapp_url']) : ($daaraInfo ? htmlspecialchars($daaraInfo['whatsapp_url'] ?? '') : ''); ?>">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="website_url">Site web</label>
-                        <input type="url" id="website_url" name="website_url" value="<?php echo isset($_POST['website_url']) ? htmlspecialchars($_POST['website_url']) : ($daaraInfo ? htmlspecialchars($daaraInfo['website_url'] ?? '') : ''); ?>">
-                    </div>
                     
                     <button type="submit" class="submit-btn">💾 Enregistrer les modifications</button>
                 </form>
