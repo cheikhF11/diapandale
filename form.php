@@ -368,6 +368,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 10px 30px rgba(201, 162, 77, 0.3);
             overflow: hidden;
             border: 2px solid rgba(255,255,255,0.7);
+            animation: none !important;
+            transform: none !important;
         }
 
         .logo-icon img {
@@ -376,6 +378,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: block;
             object-fit: cover;
             border-radius: 50%;
+            animation: none !important;
+            transform: none !important;
         }
         
         @keyframes fadeIn {

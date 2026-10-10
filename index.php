@@ -299,6 +299,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 0 auto;
             font-size: 40px;
             overflow: hidden;
+            animation: none !important;
+            transform: none !important;
         }
         .logo-icon img {
             width: 100%;
@@ -306,6 +308,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: block;
             object-fit: cover;
             border-radius: 50%;
+            animation: none !important;
+            transform: none !important;
         }
         
         @keyframes fadeIn {
@@ -666,8 +670,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <img src="bmh1.jpeg" alt="Logo">
                     </div>
                 </div>
-                <p class="title">Bienvenue</p>
-                <p class="subtitle">Espace membre • Accès sécurisé</p>
+                <p class="title">Dalal ak Diam Muride</p>
+                <p class="subtitle">Accès sécurisé</p>
             </div>
             
             <?php if (!empty($error)): ?>
