@@ -15,11 +15,27 @@ function getUserInfo($connexion, $num) {
     return $query->fetch(PDO::FETCH_ASSOC);
 }
 
+function hasRole($roleValue, ...$allowedRoles) {
+    $roleValue = strtolower(trim((string) ($roleValue ?? '')));
+    if ($roleValue === '') {
+        return false;
+    }
+
+    $roles = preg_split('/[\s,]+/', $roleValue, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    foreach ($roles as $role) {
+        if (in_array($role, $allowedRoles, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function isAdminDaara($connexion, $num) {
     $query = $connexion->prepare("SELECT role FROM membre WHERE num = ? LIMIT 1");
     $query->execute([$num]);
     $result = $query->fetch(PDO::FETCH_ASSOC);
-    return $result && $result['role'] === 'admin_daara';
+    return $result && hasRole($result['role'] ?? '', 'admin_daara', 'admin_membre');
 }
 
 function getGroupLinks($connexion) {

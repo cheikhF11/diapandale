@@ -230,10 +230,10 @@ try {
     <div class="nav-links">
         <a href="accueil.php" class="nav-btn">🏠 Accueil</a>
         <a href="dashboard.php" class="nav-btn active">📊 Dashboard</a>
-        <?php if (isset($userInfo['role']) && $userInfo['role'] === 'admin_daara'): ?>
+        <?php if (isset($userInfo['role']) && (strtolower((string) $userInfo['role']) === 'admin_daara' || strtolower((string) $userInfo['role']) === 'admin_membre' || strpos(strtolower((string) $userInfo['role']), 'admin_daara') !== false || strpos(strtolower((string) $userInfo['role']), 'admin_membre') !== false)): ?>
             <a href="admin_daara.php" class="nav-btn">⚙️ Daara</a>
         <?php endif; ?>
-        <?php if (isset($userInfo['role']) && $userInfo['role'] === 'admin_membre'): ?>
+        <?php if (isset($userInfo['role']) && (strtolower((string) $userInfo['role']) === 'admin_membre' || strtolower((string) $userInfo['role']) === 'admin_daara' || strpos(strtolower((string) $userInfo['role']), 'admin_membre') !== false || strpos(strtolower((string) $userInfo['role']), 'admin_daara') !== false)): ?>
             <a href="admin_membres.php" class="nav-btn">👥 Membres</a>
         <?php endif; ?>
         <a href="logout.php" class="nav-btn red">Déconnexion</a>

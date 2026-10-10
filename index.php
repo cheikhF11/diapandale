@@ -298,17 +298,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             margin: 0 auto;
             font-size: 40px;
-            animation: rotate 10s linear infinite;
             overflow: hidden;
         }
         .logo-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* adapte l’image sans déformation */
-}
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 50%;
         }
         
         @keyframes fadeIn {
@@ -327,7 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         .subtitle {
             text-align: center;
-            color: #5d5d5d;
+            color: #6b655d;
             font-size: 12px;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -425,13 +422,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         #submit {
-            background: linear-gradient(135deg, #111111, #2a2a2a 60%, #b58b45);
+            background: linear-gradient(135deg, #111111 0%, #1d1d1d 45%, #b58b45 100%);
             color: #FFFFFF;
             border: none;
             padding: 14px 18px;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 12px 22px rgba(17,17,17,0.12);
+            box-shadow: 0 14px 22px rgba(17,17,17,0.18);
         }
         
         #submit::before {
@@ -670,7 +667,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
                 <p class="title">Bienvenue</p>
-                <p class="subtitle">Dala ak Diam Muride</p>
+                <p class="subtitle">Espace membre • Accès sécurisé</p>
             </div>
             
             <?php if (!empty($error)): ?>

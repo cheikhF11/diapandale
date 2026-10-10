@@ -9,11 +9,27 @@ if (!isset($_SESSION['number']) || !isset($_SESSION['logged_in'])) {
     exit;
 }
 
+function hasRole($roleValue, ...$allowedRoles) {
+    $roleValue = strtolower(trim((string) ($roleValue ?? '')));
+    if ($roleValue === '') {
+        return false;
+    }
+
+    $roles = preg_split('/[\s,]+/', $roleValue, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    foreach ($roles as $role) {
+        if (in_array($role, $allowedRoles, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function isAdminMembre($connexion, $num) {
     $query = $connexion->prepare("SELECT role FROM membre WHERE num = ? LIMIT 1");
     $query->execute([$num]);
     $result = $query->fetch(PDO::FETCH_ASSOC);
-    return $result && $result['role'] === 'admin_membre';
+    return $result && hasRole($result['role'] ?? '', 'admin_membre', 'admin_daara');
 }
 
 function getAllMembers($connexion) {
@@ -179,9 +195,10 @@ try {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #F2F2F2;
+            background: linear-gradient(180deg, #f8f4ee 0%, #f2f2f2 28%, #f7f7f7 100%);
             min-height: 100vh;
             padding: 20px;
+            color: #333;
         }
         
         .bg-animation {
@@ -213,10 +230,10 @@ try {
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            background: #FFFFFF;
-            border: 1px solid #D0D0D0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(252,249,242,0.97) 100%);
+            border: 1px solid rgba(181, 139, 69, 0.22);
             border-radius: 25px;
-            box-shadow: 0 20px 60px rgba(17,17,17,0.08);
+            box-shadow: 0 28px 70px rgba(17,17,17,0.09), 0 12px 30px rgba(181, 139, 69, 0.08);
             overflow: hidden;
             position: relative;
             z-index: 1;
@@ -246,11 +263,12 @@ try {
         }
         
         .header {
-            background: linear-gradient(135deg, #111111 0%, #1d1d1d 100%);
+            background: linear-gradient(135deg, #111111 0%, #1d1d1d 48%, #b58b45 100%);
             color: white;
             padding: 30px;
             text-align: center;
             position: relative;
+            box-shadow: inset 0 -1px 0 rgba(255,255,255,0.08);
         }
         
         .back-btn {
@@ -368,7 +386,7 @@ try {
         }
         
         .submit-btn {
-            background: linear-gradient(135deg, #111111, #1d1d1d);
+            background: linear-gradient(135deg, #111111 0%, #1d1d1d 45%, #b58b45 100%);
             color: white;
             border: none;
             padding: 15px 40px;
@@ -378,11 +396,12 @@ try {
             font-weight: bold;
             width: 100%;
             transition: all 0.3s ease;
+            box-shadow: 0 12px 20px rgba(17,17,17,0.12);
         }
         
         .submit-btn:hover {
             transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(31, 94, 67, 0.3);
+            box-shadow: 0 10px 25px rgba(181, 139, 69, 0.24);
         }
         
         table {

@@ -366,12 +366,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 0 auto 15px;
             font-size: 45px;
             box-shadow: 0 10px 30px rgba(201, 162, 77, 0.3);
-            animation: pulse 2s ease-in-out infinite;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.7);
         }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 50%;
         }
         
         @keyframes fadeIn {
@@ -383,7 +387,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-align: center;
             color: #111111;
             font-size: 32px;
-            font-weight: bold;
+            font-weight: 800;
+            letter-spacing: 0.02em;
             margin-bottom: 8px;
         }
         
@@ -840,9 +845,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container">
         <form method="post" class="form" action="" id="registerForm" enctype="multipart/form-data">
             <div class="logo">
-                <div class="logo-icon"></div>
+                 <div class="logo-badge">
+                    <div class="logo-icon">
+                        <img src="bmh1.jpeg" alt="Logo">
+                    </div>
+                </div>
                 <p class="title">Créer votre compte</p>
-                <p class="subtitle">Dala ak Diam Muride</p>
+                <p class="subtitle">Dalal ak Diam Muride</p>
             </div>
             
             <div class="progress-bar">
@@ -1061,7 +1070,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <div class="button-group">
-                <button type="submit" id="submit">Je m'inscris</button>
+                <button type="submit" id="submit">Créer mon compte</button>
                 <button type="reset" id="reset">Effacer</button>
             </div>
             
