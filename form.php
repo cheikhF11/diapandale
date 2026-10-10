@@ -14,7 +14,7 @@ if (!isset($_SESSION['initiated'])) {
     $_SESSION['initiated'] = true;
 }
 
-const MAX_PROFILE_PHOTO_SIZE = 1 * 1024 * 1024;
+const MAX_PROFILE_PHOTO_SIZE = 2 * 1024 * 1024;
 
 function generateOtp() {
     return str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
