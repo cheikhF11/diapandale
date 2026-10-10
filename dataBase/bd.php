@@ -24,7 +24,12 @@ function ensureMemberProfileColumns(PDO $connexion): void {
     }
 
     if (!in_array('photo_profil', $columns, true)) {
-        $connexion->exec("ALTER TABLE membre ADD COLUMN photo_profil VARCHAR(255) NULL AFTER email");
+        $connexion->exec("ALTER TABLE membre ADD COLUMN photo_profil TEXT NULL AFTER email");
+    } else {
+        $columnDef = $connexion->query("SHOW COLUMNS FROM membre LIKE 'photo_profil'")->fetch(PDO::FETCH_ASSOC);
+        if ($columnDef && stripos((string) ($columnDef['Type'] ?? ''), 'text') === false && (int) ($columnDef['Length'] ?? 0) < 5000) {
+            $connexion->exec("ALTER TABLE membre MODIFY photo_profil TEXT NULL");
+        }
     }
 }
 

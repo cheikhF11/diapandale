@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS membre (
     nom                 VARCHAR(100) NOT NULL,
     email               VARCHAR(255) NOT NULL UNIQUE,
     adresse             VARCHAR(255) NULL,                     -- adresse complète du membre
-    photo_profil        VARCHAR(255) NULL,                     -- URL de la photo de profil
+    photo_profil        TEXT NULL,                             -- photo de profil encodée en base ou URL
     date_naissance      DATE         NULL,
     genre               VARCHAR(20)  NOT NULL,                 -- Homme / Femme
     profession          VARCHAR(50)  NOT NULL,                 -- travailleur / etudiant / eleve

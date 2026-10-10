@@ -101,10 +101,10 @@ try {
                 $error = "Membre invalide";
             } else {
                 if (deleteMember($connexion, $memberNum)) {
-                    $success = "Membre supprimé avec succès";
+                    $success = "Le membre a bien été supprimé.";
                     $members = getAllMembers($connexion);
                 } else {
-                    $error = "Erreur lors de la suppression";
+                    $error = "Une erreur s’est produite lors de la suppression.";
                 }
             }
         } elseif (isset($_POST['action']) && $_POST['action'] === 'add') {
@@ -122,15 +122,15 @@ try {
             $passeword = securisation($_POST['passeword'] ?? '');
 
             if (empty($num) || empty($prenom) || empty($nom) || empty($email) || empty($date_naissance) || empty($genre) || empty($profession) || empty($passeword)) {
-                $error = "Veuillez remplir tous les champs obligatoires";
+                $error = "Merci de remplir tous les champs obligatoires.";
             } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $error = "Veuillez saisir une adresse e-mail valide";
+                $error = "Veuillez saisir une adresse e-mail valide.";
             } elseif ($profession === 'travailleur' && empty($profession_details)) {
-                $error = "Veuillez indiquer la profession";
+                $error = "Merci de préciser la profession.";
             } elseif ($profession === 'etudiant' && (empty($niveau_etude) || empty($filiere))) {
-                $error = "Veuillez indiquer le niveau d'études et la filière";
+                $error = "Merci de renseigner le niveau d’études et la filière.";
             } elseif ($profession === 'eleve' && empty($classe)) {
-                $error = "Veuillez indiquer la classe";
+                $error = "Merci de préciser la classe.";
             } else {
                 $userData = [
                     'num' => $num,
@@ -150,11 +150,11 @@ try {
                 $result = addMember($connexion, $userData);
                 
                 if ($result === true) {
-                    $success = "Membre ajouté avec succès";
+                    $success = "Le membre a bien été ajouté à la communauté.";
                     $members = getAllMembers($connexion);
                 } elseif (is_array($result) && isset($result['error'])) {
                     if ($result['error'] === 'numero_existe') {
-                        $error = "Ce numéro est déjà utilisé";
+                        $error = "Ce numéro est déjà utilisé.";
                     }
                 }
             }
@@ -163,7 +163,7 @@ try {
     
 } catch (Throwable $e) {
     error_log("Erreur DB: " . $e->getMessage());
-    $error = "Une erreur est survenue";
+    $error = "Une petite erreur s’est produite. Merci de réessayer.";
 }
 ?>
 
@@ -462,8 +462,8 @@ try {
     <div class="container">
         <div class="header">
             <a href="accueil.php" class="back-btn">← Retour</a>
-            <h1>👥 Gestion des Membres</h1>
-            <p>Ajouter et supprimer des membres</p>
+            <h1>👥 Gestion des membres</h1>
+            <p>Suivre et accompagner la communauté</p>
         </div>
         
         <div class="content">

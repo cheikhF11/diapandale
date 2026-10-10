@@ -97,7 +97,7 @@ function sendDaaraInfoNotification($connexion, $data) {
         <body style='font-family: Arial, sans-serif; color: #111; line-height: 1.6;'>
             <div style='max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d0d0d0; border-radius: 12px;'>
                 <h2 style='color: #111111; margin-bottom: 16px;'>Nouvelle information du Daara</h2>
-                <p>Muride Ziar nagne la,</p>
+                <p>Bonjour à tous,</p>
                 <p>Une nouvelle information a été publiée sur le site de la DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE.</p>
                 <p><strong>Thème :</strong> {$theme}<br>
                 <strong>Conférencier :</strong> {$conferencier}<br>
@@ -105,9 +105,9 @@ function sendDaaraInfoNotification($connexion, $data) {
                 <strong>Lieu :</strong> {$lieu}</p>
                 <p><strong>Programme :</strong><br>{$programme}</p>
                 <p><strong>Description :</strong><br>{$description}</p>
-                <p>Merci de rester connecté pour suivre les prochaines activités.</p>
+                <p>Merci de rester connecté pour suivre les prochaines activités et les moments importants du Dahira.</p>
                 
-                <p>Cordialement,<br>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
+                <p>Avec respect,<br>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
                  <p style='margin-top: 18px; font-weight: 700; color: #111;'>Dieuredieufe Borom Touba Diarama Mame Cheikh Ibrahima Fall</p>
             </div>
         </body>
@@ -150,7 +150,7 @@ try {
         $description = securisation($_POST['description'] ?? '');
         if (empty($theme) || empty($conferencier) || empty($date_seance) || 
             empty($lieu) || empty($contact) || empty($programme)) {
-            $error = "Veuillez remplir tous les champs";
+            $error = "Merci de remplir tous les champs requis.";
         } else {
             $data = [
                 'theme' => $theme,
@@ -165,8 +165,8 @@ try {
             if (updateDaaraInfo($connexion, $data, $_SESSION['number'])) {
                 $mailSent = sendDaaraInfoNotification($connexion, $data);
                 $success = $mailSent
-                    ? "Les informations ont été mises à jour avec succès et un e-mail a été envoyé à tous les membres."
-                    : "Les informations ont été mises à jour avec succès.";
+                    ? "Les informations ont bien été mises à jour et un message a été envoyé à tous les membres."
+                    : "Les informations ont bien été mises à jour.";
                 $daaraInfo = getDaaraInfo($connexion);
                 $historique = getHistorique($connexion);
             }
@@ -175,7 +175,7 @@ try {
     
 } catch (Throwable $e) {
     error_log("Erreur DB: " . $e->getMessage());
-    $error = "Une erreur est survenue";
+    $error = "Une petite erreur s’est produite. Merci de réessayer.";
 }
 ?>
 

@@ -14,6 +14,8 @@ if (!isset($_SESSION['initiated'])) {
     $_SESSION['initiated'] = true;
 }
 
+const MAX_PROFILE_PHOTO_SIZE = 1 * 1024 * 1024;
+
 function generateOtp() {
     return str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
 }
@@ -32,9 +34,40 @@ function getSmtpConfig() {
 
 function sendOtpEmail($email, $otp) {
     $subject = 'Code de confirmation - DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE';
-    $message = "Bonjour,\r\n\r\nVotre code de confirmation est : $otp\r\nCe code expire dans 10 minutes.\r\n\r\nMerci,\r\nDAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE";
+    $message = "Bonjour,\r\n\r\nVotre code de confirmation est : $otp\r\nCe code expire dans 10 minutes.\r\n\r\nMerci pour votre confiance.\r\nDAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE";
 
     return envoyerMail($email, $subject, $message);
+}
+
+function normalizeProfilePhoto($uploadedFile, $legacyUrl = '') {
+    $legacyUrl = trim((string) $legacyUrl);
+
+    if (isset($uploadedFile['tmp_name']) && is_string($uploadedFile['tmp_name']) && $uploadedFile['tmp_name'] !== '' && $uploadedFile['error'] === UPLOAD_ERR_OK) {
+        $fileSize = (int) ($uploadedFile['size'] ?? 0);
+        if ($fileSize > MAX_PROFILE_PHOTO_SIZE) {
+            throw new InvalidArgumentException('La photo doit faire au maximum 1 Mo.');
+        }
+
+        $fileInfo = @getimagesize($uploadedFile['tmp_name']);
+        $allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+        if ($fileInfo === false || !in_array($fileInfo['mime'] ?? '', $allowedMime, true)) {
+            throw new InvalidArgumentException('Format de photo invalide. Utilisez JPG, PNG, WEBP ou GIF.');
+        }
+
+        $imageData = file_get_contents($uploadedFile['tmp_name']);
+        if ($imageData === false) {
+            throw new RuntimeException('Impossible de lire le fichier uploadé.');
+        }
+
+        return 'data:' . ($fileInfo['mime'] ?? 'image/jpeg') . ';base64,' . base64_encode($imageData);
+    }
+
+    if ($legacyUrl !== '') {
+        return $legacyUrl;
+    }
+
+    return null;
 }
 
 function registerUser($connexion, $data) {
@@ -106,6 +139,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $adresse = securisation($_POST['adresse'] ?? '');
     $photo_profil = securisation($_POST['photo_profil'] ?? '');
     $date_naissance = securisation($_POST['date_naissance'] ?? '');
+    $photoData = null;
+
+    try {
+        $photoData = normalizeProfilePhoto($_FILES['photo_profil'] ?? [], $photo_profil);
+    } catch (Throwable $e) {
+        $error = $e->getMessage();
+    }
     $genre = securisation($_POST['genre'] ?? '');
     $profession = securisation($_POST['profession'] ?? '');
     $profession_details = securisation($_POST['profession_details'] ?? '');
@@ -116,21 +156,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirm = securisation($_POST['confirm'] ?? '');
 
     if (empty($num) || empty($prenom) || empty($nom) || empty($email) || empty($adresse) || empty($date_naissance) || empty($genre) || empty($profession) || empty($passeword) || empty($confirm)) {
-        $error = "Veuillez remplir tous les champs obligatoires";
+        $error = "Merci de remplir tous les champs obligatoires.";
+    } elseif (!empty($error)) {
+        // La validation de l'image a déjà renvoyé une erreur spécifique.
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "Veuillez saisir une adresse e-mail valide";
+        $error = "Veuillez saisir une adresse e-mail valide.";
     } elseif ($profession === 'travailleur' && empty($profession_details)) {
-        $error = "Veuillez indiquer votre profession";
+        $error = "Merci de préciser votre profession.";
     } elseif ($profession === 'etudiant' && (empty($niveau_etude) || empty($filiere))) {
-        $error = "Veuillez indiquer votre niveau d'études et votre filière";
+        $error = "Merci de renseigner votre niveau d’études et votre filière.";
     } elseif ($profession === 'eleve' && empty($classe)) {
-        $error = "Veuillez sélectionner votre classe";
+        $error = "Merci de choisir votre classe.";
     } elseif (!preg_match('/^[0-9+\-\s()]+$/', $num)) {
-        $error = "Format de numéro invalide";
+        $error = "Le numéro saisi semble invalide.";
     } elseif ($passeword !== $confirm) {
-        $error = "Les mots de passe ne correspondent pas";
+        $error = "Les mots de passe ne correspondent pas.";
     } elseif (strlen($passeword) < 6) {
-        $error = "Le mot de passe doit contenir au moins 6 caractères";
+        $error = "Le mot de passe doit contenir au moins 6 caractères.";
     } else {
         try {
             $connexion = getDatabaseConnection();
@@ -141,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nom' => $nom,
                 'email' => $email,
                 'adresse' => $adresse,
-                'photo_profil' => $photo_profil,
+                'photo_profil' => $photoData,
                 'date_naissance' => $date_naissance,
                 'genre' => $genre,
                 'profession' => $profession,
@@ -169,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Throwable $e) {
             error_log("Erreur DB: " . $e->getMessage());
-            $error = "Une erreur est survenue lors de l'inscription";
+            $error = "Une petite erreur s’est produite lors de votre inscription. Merci de réessayer.";
         }
     }
 }
@@ -180,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inscription - DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</title>
+    <title>Créer mon compte - DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</title>
     <link rel="stylesheet" href="assets/css/daara-theme.css">
     <style>
         * {
@@ -191,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #F2F2F2;
+            background: linear-gradient(180deg, #f8f3ea 0%, #f2f2f2 30%, #f8f8f8 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -281,11 +323,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         .form {
-            background: #FFFFFF;
-            border: 1px solid #D0D0D0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(252,249,242,0.98) 100%);
+            border: 1px solid rgba(181, 139, 69, 0.24);
             border-radius: 25px;
             padding: 45px;
-            box-shadow: 0 20px 60px rgba(17, 17, 17, 0.1);
+            box-shadow: 0 26px 60px rgba(17, 17, 17, 0.08), 0 10px 25px rgba(181, 139, 69, 0.08);
             position: relative;
             overflow: hidden;
         }
@@ -622,11 +664,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @media (max-width: 768px) {
             body {
-                padding: 16px 12px 60px;
+                padding: 16px 12px 70px;
                 overflow-x: hidden;
             }
 
             .container {
+                width: 100%;
                 max-width: 100%;
             }
 
@@ -681,13 +724,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 560px) {
+            body {
+                padding: 12px 8px 72px;
+            }
+
+            .form {
+                padding: 22px 14px 18px;
+                border-radius: 16px;
+            }
+
             .title {
-                font-size: 24px;
+                font-size: 22px;
             }
 
             .subtitle {
-                letter-spacing: 0.06em;
+                font-size: 12px;
+                margin-bottom: 22px;
+                letter-spacing: 0.04em;
+            }
+
+            .progress-bar {
+                margin-bottom: 22px;
+            }
+
+            .input, select, textarea {
+                width: 100%;
+                min-height: 48px;
+                font-size: 15px;
+                padding: 12px 12px;
+            }
+
+            textarea {
+                min-height: 92px;
+            }
+
+            .flex {
+                margin-bottom: 16px;
+            }
+
+            .flex2 {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px 10px;
+            }
+
+            .flex2 > label:first-child {
+                width: 100%;
+                margin-bottom: 8px;
             }
 
             .login-link {
@@ -698,6 +783,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .footer {
                 font-size: 11px;
                 padding: 9px 8px;
+            }
+        }
+
+        @media (max-width: 390px) {
+            .title {
+                font-size: 20px;
+            }
+
+            .logo-icon {
+                width: 64px;
+                height: 64px;
+                font-size: 30px;
+            }
+
+            .input, select, textarea {
+                font-size: 14px;
+                padding: 11px 10px;
+            }
+
+            #submit, #reset {
+                padding: 14px 12px;
+                font-size: 15px;
             }
         }
         
@@ -731,11 +838,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     
     <div class="container">
-        <form method="post" class="form" action="" id="registerForm">
+        <form method="post" class="form" action="" id="registerForm" enctype="multipart/form-data">
             <div class="logo">
                 <div class="logo-icon"></div>
-                <p class="title">Inscription</p>
-                <p class="subtitle">DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
+                <p class="title">Créer votre compte</p>
+                <p class="subtitle">Bienvenue dans la communauté</p>
             </div>
             
             <div class="progress-bar">
@@ -808,6 +915,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" 
                     required 
                     autocomplete="email">
+            </div>
+
+            <div class="flex">
+                <label for="adresse">Adresse *</label>
+                <textarea 
+                    name="adresse" 
+                    id="adresse" 
+                    class="input" 
+                    placeholder="Saisissez votre adresse exacte" 
+                    required><?php echo isset($_POST['adresse']) ? htmlspecialchars($_POST['adresse']) : ''; ?></textarea>
+            </div>
+
+            <div class="flex">
+                <label for="photo_profil">Photo de profil</label>
+                <input 
+                    type="file" 
+                    name="photo_profil" 
+                    id="photo_profil" 
+                    class="input" 
+                    accept="image/jpeg,image/png,image/webp,image/gif">
+                <div id="photoPreviewWrap" style="display:none; margin-top:12px; border:2px dashed #d6b57f; border-radius:14px; padding:10px; background:#faf8f1; text-align:center;">
+                    <img id="photoPreview" src="" alt="Aperçu de la photo" style="max-width:140px; max-height:140px; width:100%; object-fit:cover; border-radius:50%; border:3px solid #d6b57f; display:block; margin:0 auto 8px;">
+                    <small style="color:#4A4A4A; font-weight:600;">Aperçu de votre photo</small>
+                </div>
+                <small style="display:block;margin-top:8px;color:#6f6f6f;">JPG, PNG, WEBP ou GIF. Taille maxi : 1 Mo. La photo est enregistrée dans la base.</small>
             </div>
 
             <div class="flex">
@@ -930,12 +1062,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <div class="button-group">
-                <button type="submit" id="submit">S'inscrire</button>
-                <button type="reset" id="reset">Annuler</button>
+                <button type="submit" id="submit">Je m'inscris</button>
+                <button type="reset" id="reset">Effacer</button>
             </div>
             
             <p class="login-link">
-                Vous avez déjà un compte ? <a href="index.php">Se connecter</a>
+                Vous avez déjà un compte ? <a href="index.php">Connexion</a>
             </p>
         </form>
     </div>
@@ -948,6 +1080,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }, 2000); // Redirection après 2 secondes
         <?php endif; ?>
         
+        const photoInput = document.getElementById('photo_profil');
+        const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+        const photoPreview = document.getElementById('photoPreview');
+        const MAX_PROFILE_PHOTO_SIZE = 1 * 1024 * 1024;
+
+        if (photoInput) {
+            photoInput.addEventListener('change', function() {
+                const file = this.files && this.files[0];
+                if (!file) {
+                    photoPreviewWrap.style.display = 'none';
+                    photoPreview.src = '';
+                    return;
+                }
+
+                if (file.size > MAX_PROFILE_PHOTO_SIZE) {
+                    this.value = '';
+                    photoPreviewWrap.style.display = 'none';
+                    photoPreview.src = '';
+                    showFormMessage('error', 'La photo doit faire au maximum 1 Mo.');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    photoPreview.src = e.target.result;
+                    photoPreviewWrap.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         // Fonction pour afficher les champs selon la profession
         function showProfessionFields() {
             const profession = document.getElementById('profession').value;
@@ -1011,7 +1175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const dateNaissance = document.getElementById('date_naissance');
             const password = document.getElementById('passeword');
             const confirmPassword = document.getElementById('confirm');
+            const fileInput = document.getElementById('photo_profil');
             const requiredMessage = 'Veuillez remplir correctement tous les champs obligatoires.';
+
+            if (fileInput && fileInput.files && fileInput.files[0] && fileInput.files[0].size > MAX_PROFILE_PHOTO_SIZE) {
+                fileInput.focus();
+                return { valid: false, message: 'La photo doit faire au maximum 1 Mo.' };
+            }
 
             if (!phone.value.trim() || !/^[0-9+\-\s()]+$/.test(phone.value.trim())) {
                 phone.focus();

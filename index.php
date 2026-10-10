@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $identifier = securisation($_POST['recovery_identifier'] ?? '');
 
         if ($identifier === '') {
-            $recoveryError = 'Veuillez renseigner votre numéro ou votre email.';
+            $recoveryError = 'Merci de renseigner votre numéro ou votre e-mail.';
         } else {
             try {
                 $connexion = getDatabaseConnection();
@@ -70,17 +70,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                     $updateQuery->execute([$hashedPassword, $user['id']]);
 
-                    $subject = 'Récupération de votre mot de passe - DAHIRA';
+                    $subject = 'Réinitialisation de votre mot de passe - DAHIRA';
                     $message = "
                         <html>
                         <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                            <h2>Récupération de mot de passe</h2>
+                            <h2>Réinitialisation de votre mot de passe</h2>
                             <p>Bonjour {$user['prenom']} {$user['nom']},</p>
-                            <p>Votre mot de passe a été réinitialisé avec succès.</p>
+                            <p>Nous avons bien réinitialisé votre mot de passe.</p>
                             <p>Votre nouveau mot de passe temporaire est : <strong>{$temporaryPassword}</strong></p>
-                            <p>Veuillez vous connecter puis changer votre mot de passe dès votre prochaine connexion.</p>
+                            <p>Merci de vous reconnecter et de le modifier dès que possible pour sécuriser votre compte.</p>
                             <p>Numéro de compte : <strong>{$user['num']}</strong></p>
-                            <p>Cordialement,<br>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
+                            <p>Merci pour votre confiance,<br>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
                         </body>
                         </html>
                     ";
@@ -90,12 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($emailSent) {
                         $recoveryMessage = 'Un nouveau mot de passe temporaire a été envoyé à votre adresse e-mail.';
                     } else {
-                        $recoveryMessage = 'Votre compte a bien été retrouvé, mais l’e-mail de récupération n’a pas pu être envoyé. Contactez l’administration pour finaliser la récupération.';
+                        $recoveryMessage = 'Nous avons bien retrouvé votre compte, mais l’e-mail de récupération n’a pas pu être envoyé. Merci de contacter l’administration pour finaliser la procédure.';
                     }
                 }
             } catch (Throwable $e) {
                 error_log('Erreur récupération mot de passe: ' . $e->getMessage());
-                $recoveryError = 'Une erreur est survenue. Veuillez réessayer.';
+                $recoveryError = 'Une petite erreur s’est produite. Merci de réessayer dans un instant.';
             }
         }
     } else {
@@ -109,9 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Gérer les erreurs spécifiques
             if (is_array($user) && isset($user['error'])) {
                 if ($user['error'] === 'compte_non_confirme') {
-                    $error = "Votre compte n'a pas encore été confirmé. Veuillez vérifier votre email.";
+                    $error = "Votre compte n’a pas encore été confirmé. Merci de vérifier votre e-mail.";
                 } else {
-                    $error = "Une erreur est survenue";
+                    $error = "Une petite erreur s’est produite. Merci de réessayer.";
                 }
             } elseif ($user) {
                 // Connexion réussie - régénérer l'ID de session
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Throwable $e) {
             error_log("Erreur de connexion: " . $e->getMessage());
-            $error = "Une erreur est survenue. Veuillez réessayer.";
+            $error = "Une petite erreur s’est produite. Merci de réessayer.";
         }
     }
 } else {
@@ -147,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</title>
+    <title>Connexion - Espace membre</title>
     <link rel="stylesheet" href="assets/css/daara-theme.css">
      <style>
         * {
@@ -667,8 +667,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="logo-badge">
                     <div class="logo-icon">✦</div>
                 </div>
-                <p class="title">Connexion</p>
-                <p class="subtitle">DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
+                <p class="title">Bienvenue</p>
+                <p class="subtitle">Espace membre</p>
             </div>
             
             <?php if (!empty($error)): ?>
@@ -722,17 +722,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <div class="button-group">
                 <button type="submit" id="submit">Se connecter</button>
-                <button type="reset" id="reset">Annuler</button>
+                <button type="reset" id="reset">Effacer</button>
             </div>
             
             <p class="register-link">
-                Si vous n'avez pas de compte, veuillez <a href="form.php">créer un compte</a>
+                Vous n’avez pas encore de compte ? <a href="form.php">Créer le mien</a>
             </p>
         </form>
 
         <div class="recovery-actions">
             <button type="button" class="forgot-password-btn" id="forgotPasswordBtn">
-                Mot de passe oublié
+                J’ai oublié mon mot de passe
             </button>
 
             <div class="recovery-container" id="recoveryContainer">

@@ -27,8 +27,7 @@ function getGroupLinks($connexion) {
 
 function getMembersByProfession($connexion, $profession) {
     $query = $connexion->prepare(
-        "SELECT id, num, prenom, nom, genre, profession_details, niveau_etude, classe, date_inscription,
-                CASE WHEN profession = 'etudiant' THEN profession_details ELSE NULL END as filiere
+        "SELECT id, num, prenom, nom, email, adresse, photo_profil, genre, profession, profession_details, niveau_etude, filiere, classe, date_inscription
          FROM membre WHERE profession = ? AND confirm = 1 ORDER BY nom ASC"
     );
     $query->execute([$profession]);
@@ -67,8 +66,7 @@ try {
     if (isset($_GET['search']) && !empty(securisation($_GET['search'] ?? ''))) {
         $searchTerm = securisation($_GET['search'] ?? '');
         $searchQuery = $connexion->prepare(
-            "SELECT num, prenom, nom, genre, profession,
-                    CASE WHEN profession = 'etudiant' THEN profession_details ELSE NULL END as filiere
+            "SELECT num, prenom, nom, email, adresse, photo_profil, genre, profession, profession_details, niveau_etude, filiere, classe
              FROM membre WHERE (prenom LIKE ? OR nom LIKE ? OR num LIKE ?) AND confirm = 1
              ORDER BY nom ASC LIMIT 50"
         );
@@ -88,37 +86,65 @@ try {
 
 // ── PHP helper to render a members table ──
 function renderMembersTable($members, $showProfession = false, $detailField = null, $showFiliere = false) {
-    $html  = '<table class="dtable"><thead><tr>';
-    $html .= '<th>Nom complet</th><th>Numéro</th><th>Genre</th>';
-    if ($showProfession) $html .= '<th>Profession</th>';
-    if ($detailField)    $html .= '<th>Détails</th>';
-    if ($showFiliere)    $html .= '<th>Filière</th>';
-    $html .= '<th>Inscription</th></tr></thead><tbody>';
-
-    foreach ($members as $i => $m) {
-        $delay = min($i * 35, 700);
-        $html .= "<tr class='row-in' style='animation-delay:{$delay}ms'>";
-        $html .= '<td>' . htmlspecialchars($m['prenom'] . ' ' . $m['nom']) . '</td>';
-        $html .= '<td>' . htmlspecialchars($m['num']) . '</td>';
-        $g = strtolower($m['genre'] ?? '');
-        $html .= "<td><span class='badge badge-{$g}'>" . htmlspecialchars($m['genre'] ?? '') . "</span></td>";
-        if ($showProfession) {
-            $html .= "<td><span class='badge badge-prof'>" . htmlspecialchars(ucfirst($m['profession'] ?? '')) . "</span></td>";
-        }
-        if ($detailField) {
-            $html .= '<td>' . htmlspecialchars($m[$detailField] ?? '—') . '</td>';
-        }
-        if ($showFiliere) {
-            $f = $m['filiere'] ?? null;
-            $html .= $f
-                ? "<td><span class='badge badge-filiere'>" . htmlspecialchars($f) . "</span></td>"
-                : "<td style='color:var(--text-light)'>—</td>";
-        }
-        $date = !empty($m['date_inscription']) ? date('d/m/Y', strtotime($m['date_inscription'])) : '—';
-        $html .= "<td>{$date}</td></tr>";
+    if (empty($members)) {
+        return '';
     }
 
-    $html .= '</tbody></table>';
+    $html = '<div class="member-grid">';
+
+    foreach ($members as $i => $m) {
+        $fullName = trim((string) (($m['prenom'] ?? '') . ' ' . ($m['nom'] ?? '')));
+        $profession = (string) ($m['profession'] ?? '');
+        $detailValue = $m[$detailField] ?? null;
+        $filiereValue = $m['filiere'] ?? null;
+        $niveauValue = $m['niveau_etude'] ?? null;
+        $classeValue = $m['classe'] ?? null;
+
+        $roleLabel = 'Membre';
+        if ($profession === 'travailleur') {
+            $roleLabel = $detailValue ?: 'Travailleur';
+        } elseif ($profession === 'etudiant') {
+            $roleLabel = trim((string) ($niveauValue . ' ' . $filiereValue));
+            if ($roleLabel === '') {
+                $roleLabel = 'Étudiant';
+            }
+        } elseif ($profession === 'eleve') {
+            $roleLabel = $classeValue ?: 'Élève';
+        }
+
+        $photo = !empty($m['photo_profil'])
+            ? htmlspecialchars((string) $m['photo_profil'], ENT_QUOTES, 'UTF-8')
+            : 'https://ui-avatars.com/api/?name=' . urlencode($fullName) . '&background=111111&color=F2F2F2&size=200';
+
+        $memberData = [
+            'name' => $fullName,
+            'num' => $m['num'] ?? '',
+            'email' => $m['email'] ?? '',
+            'genre' => $m['genre'] ?? '',
+            'profession' => $roleLabel,
+            'adresse' => $m['adresse'] ?? '',
+            'niveau' => $niveauValue ?? '',
+            'filiere' => $filiereValue ?? '',
+            'classe' => $classeValue ?? '',
+            'photo' => $photo,
+        ];
+
+        $memberJson = htmlspecialchars(json_encode($memberData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8');
+        $genderClass = strtolower((string) ($m['genre'] ?? '')) === 'femme' ? 'badge-femme' : 'badge-homme';
+
+        $html .= '<button type="button" class="member-card" data-member="' . $memberJson . '">';
+        $html .= '<div class="member-avatar-wrap"><img class="member-avatar" src="' . $photo . '" alt="Photo de ' . htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') . '"></div>';
+        $html .= '<div class="member-name">' . htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') . '</div>';
+        $html .= '<div class="member-meta"><span class="badge ' . $genderClass . '">' . htmlspecialchars((string) ($m['genre'] ?? '—'), ENT_QUOTES, 'UTF-8') . '</span>';
+        if ($showProfession) {
+            $html .= '<span class="badge badge-prof">' . htmlspecialchars(ucfirst((string) (($m['profession'] ?? ''))), ENT_QUOTES, 'UTF-8') . '</span>';
+        }
+        $html .= '</div>';
+        $html .= '<div class="member-role">' . htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') . '</div>';
+        $html .= '</button>';
+    }
+
+    $html .= '</div>';
     return $html;
 }
 ?>
@@ -158,16 +184,16 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
             --text-light: var(--muted);
         }
 
-        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:linear-gradient(180deg,#f8f5ef 0%, #f2f2f2 30%, #f8f8f8 100%); color:var(--text); min-height:100vh; }
 
         /* ══ TOP NAV ══ */
         .topnav {
-            background:var(--primary);
+            background:linear-gradient(135deg, #111111 0%, #1d1d1d 58%, #b58b45 100%);
             height:72px; padding:0 20px;
             display:flex; align-items:center; justify-content:space-between;
             position:sticky; top:0; z-index:200;
             box-shadow:0 12px 28px rgba(17,17,17,.18);
-            border-bottom:1px solid rgba(255,255,255,.08);
+            border-bottom:1px solid rgba(255,255,255,.12);
         }
 
         .brand { display:flex; align-items:center; gap:12px; }
@@ -224,11 +250,18 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
 
         /* ══ CARD ══ */
         .card {
-            background:var(--card); border:1px solid var(--border); border-radius:var(--rad);
+            background:linear-gradient(180deg, #ffffff 0%, #fffdf9 100%);
+            border:1px solid rgba(181,139,69,.22); border-radius:var(--rad);
             box-shadow:var(--shad); padding:22px; margin-bottom:18px;
-            transition:box-shadow .25s;
+            transition:box-shadow .25s, border-color .25s;
+            position:relative;
         }
-        .card:hover { box-shadow:var(--shad-h); }
+        .card::before {
+            content:''; position:absolute; inset:0 auto auto 0; width:100%; height:4px;
+            background:linear-gradient(90deg, var(--secondary), transparent);
+            border-radius:var(--rad) var(--rad) 0 0;
+        }
+        .card:hover { box-shadow:var(--shad-h); border-color:rgba(181,139,69,.38); }
         .card-title { font-size:15px; font-weight:700; color:var(--title); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
 
         .dashboard-grid {
@@ -260,11 +293,12 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
         .stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-bottom:18px; }
 
         .stat-card {
-            background:linear-gradient(135deg,var(--primary),#282828 60%,var(--secondary));
+            background:linear-gradient(135deg,#111111 0%, #232323 55%, #b58b45 100%);
             color:var(--nav-text); border-radius:var(--rad);
             padding:16px 12px; text-align:center; cursor:pointer;
             box-shadow:0 10px 22px rgba(17,17,17,.12);
             transition:all .28s; position:relative; overflow:hidden;
+            border:1px solid rgba(255,255,255,.06);
         }
         .stat-card::after {
             content:''; position:absolute; top:-25px; right:-25px;
@@ -336,6 +370,172 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
         .badge-femme  { background:#fce7f3; color:#be185d; }
         .badge-filiere{ background:#d1fae5; color:#065f46; }
         .badge-prof   { background:#ede9fe; color:#5b21b6; }
+        .badge-pub    { display:inline-flex; align-items:center; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:700; background:#fff5df; color:#8b5e0f; }
+
+        .member-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+            gap:16px;
+        }
+
+        .member-card {
+            background:linear-gradient(180deg, #fff, #faf7f2);
+            border:1px solid #e6d7b2;
+            border-radius:18px;
+            padding:16px;
+            text-align:left;
+            cursor:pointer;
+            transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+            box-shadow:0 10px 24px rgba(17,17,17,.05);
+            color:inherit;
+            width:100%;
+        }
+
+        .member-card:hover {
+            transform:translateY(-4px);
+            border-color:var(--secondary);
+            box-shadow:0 18px 28px rgba(181,139,69,.14);
+        }
+
+        .member-avatar-wrap {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            margin-bottom:14px;
+        }
+
+        .member-avatar {
+            width:90px;
+            height:90px;
+            border-radius:50%;
+            object-fit:cover;
+            border:3px solid var(--secondary-soft);
+            background:#f3f3f3;
+        }
+
+        .member-name {
+            font-size:18px;
+            font-weight:700;
+            color:var(--title);
+            margin-bottom:8px;
+        }
+
+        .member-meta {
+            display:flex;
+            flex-wrap:wrap;
+            gap:6px;
+            margin-bottom:10px;
+        }
+
+        .member-role {
+            font-size:13px;
+            color:var(--text);
+            line-height:1.5;
+        }
+
+        .member-modal {
+            position:fixed;
+            inset:0;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            z-index:999;
+            opacity:0;
+            pointer-events:none;
+            transition:opacity .2s ease;
+        }
+
+        .member-modal.open {
+            opacity:1;
+            pointer-events:auto;
+        }
+
+        .member-modal-backdrop {
+            position:absolute;
+            inset:0;
+            background:rgba(17,17,17,.6);
+        }
+
+        .member-modal-dialog {
+            position:relative;
+            width:min(520px, calc(100vw - 24px));
+            max-height:90vh;
+            overflow:auto;
+            background:#fff;
+            border-radius:20px;
+            border:1px solid var(--border);
+            box-shadow:0 25px 60px rgba(17,17,17,.2);
+            z-index:1;
+        }
+
+        .member-modal-close {
+            position:absolute;
+            top:12px;
+            right:12px;
+            border:none;
+            background:#f3f3f3;
+            width:34px;
+            height:34px;
+            border-radius:50%;
+            font-size:24px;
+            cursor:pointer;
+            color:var(--primary);
+        }
+
+        .member-modal-body {
+            padding:22px 20px 18px;
+        }
+
+        .modal-profile {
+            display:flex;
+            gap:16px;
+            align-items:center;
+            margin-bottom:18px;
+            padding-bottom:16px;
+            border-bottom:1px solid #f0f0f0;
+        }
+
+        .modal-profile img {
+            width:82px;
+            height:82px;
+            object-fit:cover;
+            border-radius:50%;
+            border:3px solid var(--secondary-soft);
+        }
+
+        .modal-profile h3 {
+            font-size:22px;
+            color:var(--title);
+            margin-bottom:6px;
+        }
+
+        .modal-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+            gap:12px;
+        }
+
+        .modal-item {
+            background:#fafafa;
+            border:1px solid var(--border);
+            border-radius:12px;
+            padding:10px 12px;
+        }
+
+        .modal-item strong {
+            display:block;
+            font-size:11px;
+            letter-spacing:.05em;
+            text-transform:uppercase;
+            color:var(--secondary);
+            margin-bottom:4px;
+        }
+
+        .modal-item span {
+            color:var(--text);
+            font-size:13px;
+            line-height:1.5;
+        }
 
         /* ══ EMPTY ══ */
         .empty { text-align:center; padding:44px 20px; color:var(--muted); }
@@ -401,7 +601,7 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
         <img src="bmh1.jpeg" alt="logo">
         <div class="brand-text">
             <b>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</b>
-            <small>Bienvenue, <?php echo htmlspecialchars($userInfo['prenom'] . ' ' . $userInfo['nom']); ?></small>
+            <small>Bonjour, <?php echo htmlspecialchars($userInfo['prenom'] . ' ' . $userInfo['nom']); ?></small>
         </div>
     </div>
     <div class="nav-links">
@@ -452,7 +652,7 @@ function renderMembersTable($members, $showProfession = false, $detailField = nu
         </div>
 
         <div class="card">
-            <div class="card-title">📊 Tableau de bord</div>
+            <div class="card-title">📊 Vue d’ensemble</div>
             <div class="dashboard-grid">
                 <div class="dashboard-panel">
                     <canvas id="membersChart" height="180"></canvas>
@@ -597,6 +797,71 @@ function switchTab(id) {
 // Restore tab from URL
 const uTab = new URLSearchParams(location.search).get('tab');
 if (uTab) switchTab(uTab);
+
+function createMemberModal() {
+    const existing = document.getElementById('memberModal');
+    if (existing) return;
+
+    document.body.insertAdjacentHTML('beforeend', `
+        <div class="member-modal" id="memberModal" aria-hidden="true">
+            <div class="member-modal-backdrop" data-close="true"></div>
+            <div class="member-modal-dialog" role="dialog" aria-modal="true">
+                <button type="button" class="member-modal-close" aria-label="Fermer">×</button>
+                <div class="member-modal-body" id="memberModalBody"></div>
+            </div>
+        </div>
+    `);
+
+    const modal = document.getElementById('memberModal');
+    const closeBtn = modal.querySelector('.member-modal-close');
+    const backdrop = modal.querySelector('.member-modal-backdrop');
+
+    const closeModal = () => {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('open')) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        const card = event.target.closest('.member-card');
+        if (!card) return;
+
+        const member = JSON.parse(card.dataset.member);
+        const modalBody = document.getElementById('memberModalBody');
+
+        modalBody.innerHTML = `
+            <div class="modal-profile">
+                <img src="${member.photo}" alt="${member.name}">
+                <div>
+                    <h3>${member.name}</h3>
+                    <span class="badge-pub">${member.genre || 'Membre'}</span>
+                </div>
+            </div>
+            <div class="modal-grid">
+                <div class="modal-item"><strong>Numéro</strong><span>${member.num || 'Non renseigné'}</span></div>
+                <div class="modal-item"><strong>Email</strong><span>${member.email || 'Non renseigné'}</span></div>
+                <div class="modal-item"><strong>Profession</strong><span>${member.profession || 'Non renseignée'}</span></div>
+                <div class="modal-item"><strong>Genre</strong><span>${member.genre || 'Non renseigné'}</span></div>
+                ${member.niveau ? `<div class="modal-item"><strong>Niveau</strong><span>${member.niveau}</span></div>` : ''}
+                ${member.filiere ? `<div class="modal-item"><strong>Filière</strong><span>${member.filiere}</span></div>` : ''}
+                ${member.classe ? `<div class="modal-item"><strong>Classe</strong><span>${member.classe}</span></div>` : ''}
+                <div class="modal-item" style="grid-column:1 / -1;"><strong>Adresse</strong><span>${member.adresse || 'Non renseignée'}</span></div>
+            </div>
+        `;
+
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+    });
+}
+
+createMemberModal();
 
 // ── CHARTS ──
 const chartNode = document.getElementById('membersChart');
