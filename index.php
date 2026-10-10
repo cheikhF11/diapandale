@@ -665,10 +665,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="post" class="form" action="" id="loginForm">
             <div class="logo">
                 <div class="logo-badge">
-                    <div class="logo-icon">✦</div>
+                    <div class="logo-icon">
+                        <img src="bmh1.jpeg" alt="Logo">
+                    </div>
                 </div>
                 <p class="title">Bienvenue</p>
-                <p class="subtitle">Espace membre</p>
+                <p class="subtitle">Dala ak Diam Muride</p>
             </div>
             
             <?php if (!empty($error)): ?>
@@ -726,7 +728,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <p class="register-link">
-                Vous n’avez pas encore de compte ? <a href="form.php">Créer le mien</a>
+                Vous n’avez pas encore de compte ? <a href="form.php">Créer mon compte</a>
             </p>
         </form>
 

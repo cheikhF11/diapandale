@@ -842,7 +842,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="logo">
                 <div class="logo-icon"></div>
                 <p class="title">Créer votre compte</p>
-                <p class="subtitle">Bienvenue dans la communauté</p>
+                <p class="subtitle">Dala ak Diam Muride</p>
             </div>
             
             <div class="progress-bar">
@@ -939,7 +939,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <img id="photoPreview" src="" alt="Aperçu de la photo" style="max-width:140px; max-height:140px; width:100%; object-fit:cover; border-radius:50%; border:3px solid #d6b57f; display:block; margin:0 auto 8px;">
                     <small style="color:#4A4A4A; font-weight:600;">Aperçu de votre photo</small>
                 </div>
-                <small style="display:block;margin-top:8px;color:#6f6f6f;">JPG, PNG, WEBP ou GIF. Taille maxi : 1 Mo. La photo est enregistrée dans la base.</small>
             </div>
 
             <div class="flex">
