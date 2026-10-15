@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS membre (
     niveau_etude        VARCHAR(100) NULL,                     -- (si étudiant)
     filiere             VARCHAR(255) NULL,                     -- (si étudiant)
     classe              VARCHAR(50)  NULL,                     -- (si élève)
-    role                VARCHAR(100) DEFAULT NULL,              -- admin_daara / admin_membre
+    role                VARCHAR(100) DEFAULT NULL,              -- admin_daara / admin_membre / ou combinaison: admin_daara,admin_membre
     passeword           VARCHAR(255) NOT NULL,                 -- mot de passe haché (password_hash)
     confirm             TINYINT(1)   NOT NULL DEFAULT 0,        -- compte confirmé par OTP email
     otp_code            VARCHAR(10)  NULL,

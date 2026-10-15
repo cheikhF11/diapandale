@@ -223,14 +223,49 @@ function requireLogin(PDO $db, bool $touch = true): array
     return $user;
 }
 
+function normalizeRoles($value): array
+{
+    if (is_array($value)) {
+        $items = $value;
+    } else {
+        $items = preg_split('/[|,;\s]+/', trim((string) $value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    }
+
+    $roles = [];
+    foreach ($items as $item) {
+        $role = trim((string) $item);
+        if ($role !== '') {
+            $roles[] = $role;
+        }
+    }
+
+    return array_values(array_unique($roles));
+}
+
 function isAdmin(?array $user): bool
 {
-    return $user !== null && in_array((string) ($user['role'] ?? ''), ADMIN_ROLES, true);
+    if ($user === null) {
+        return false;
+    }
+
+    $roles = normalizeRoles($user['role'] ?? '');
+    foreach ($roles as $role) {
+        if (in_array($role, ADMIN_ROLES, true)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function hasRole(?array $user, string $role): bool
 {
-    return $user !== null && (string) ($user['role'] ?? '') === $role;
+    if ($user === null) {
+        return false;
+    }
+
+    $roles = normalizeRoles($user['role'] ?? '');
+    return in_array($role, $roles, true);
 }
 
 /* ═══ Formatage ═════════════════════════════════════════════════════════ */
