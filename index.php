@@ -1,867 +1,161 @@
 <?php
-session_start();
+require_once __DIR__ . '/config/app.php';
 
-require_once __DIR__ . '/dataBase/bd.php';
-require_once __DIR__ . '/sendMail/mail.php';
-require_once __DIR__ . '/securite/securisation.php';
-
-// Regénérer l'ID de session pour éviter la fixation de session
-if (!isset($_SESSION['initiated'])) {
-    session_regenerate_id(true);
-    $_SESSION['initiated'] = true;
-}
-
-function verifyUser($connexion, $email, $password) {
-    // Récupérer l'utilisateur correspondant à l'email
-    $requete = $connexion->prepare(
-        "SELECT num, email, passeword, confirm FROM membre WHERE email = ? LIMIT 1"
-    );
-    $requete->execute([$email]);
-
-    $user = $requete->fetch(PDO::FETCH_ASSOC);
-
-    // Vérifier si l'email existe
-    if (!$user) {
-        return false;
-    }
-
-    // Vérifier si le compte est confirmé (si vous utilisez cette colonne)
-    if (isset($user['confirm']) && $user['confirm'] != 1) {
-        return ['error' => 'compte_non_confirme'];
-    }
-
-    // Vérifier le mot de passe
-    if (password_verify($password, $user['passeword'])) {
-        return $user;
-    }
-
-    return false;
+// Déjà connecté : direction l'accueil.
+if (!empty($_SESSION['logged_in']) && !empty($_SESSION['number'])) {
+    redirect('accueil.php');
 }
 
 $error = '';
-$recoveryMessage = '';
-$recoveryError = '';
+$info = '';
+$email = '';
+$showRecovery = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action']) && $_POST['action'] === 'recover_password') {
-        $identifier = securisation($_POST['recovery_identifier'] ?? '');
+    $action = (string) ($_POST['action'] ?? 'login');
 
-        if ($identifier === '') {
-            $recoveryError = 'Merci de renseigner votre numéro ou votre e-mail.';
-        } else {
-            try {
-                $connexion = getDatabaseConnection();
-                $requete = $connexion->prepare(
-                    "SELECT id, num, email, prenom, nom FROM membre WHERE num = ? OR email = ? LIMIT 1"
-                );
-                $requete->execute([$identifier, $identifier]);
-                $user = $requete->fetch(PDO::FETCH_ASSOC);
+    if (!csrfValid()) {
+        $error = 'Votre session a expiré. Veuillez réessayer.';
+    } else {
+        try {
+            $db = getDatabaseConnection();
 
-                if (!$user) {
-                    $recoveryError = 'Aucun compte n’a été trouvé avec ces informations.';
-                } elseif (empty($user['email'])) {
-                    $recoveryError = 'Aucune adresse e-mail n’est enregistrée pour ce compte. Contactez l’administration.';
+            /* ── Demande de réinitialisation du mot de passe ─────────── */
+            if ($action === 'recover_password') {
+                $showRecovery = true;
+                $recoveryEmail = strtolower(securisation($_POST['recovery_email'] ?? ''));
+                $genericInfo = "Si un compte correspond à cette adresse, un e-mail contenant un lien de réinitialisation vient d'être envoyé.";
+
+                if (!filter_var($recoveryEmail, FILTER_VALIDATE_EMAIL)) {
+                    $error = 'Veuillez saisir une adresse e-mail valide.';
+                } elseif (attemptsBlocked($db, 'reset:' . $recoveryEmail)) {
+                    $info = $genericInfo; // même réponse : on ne révèle rien
                 } else {
-                    $temporaryPassword = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8)) . '@' . random_int(100, 999);
-                    $hashedPassword = password_hash($temporaryPassword, PASSWORD_DEFAULT);
+                    recordAttempt($db, 'reset:' . $recoveryEmail);
 
-                    $updateQuery = $connexion->prepare(
-                        "UPDATE membre SET passeword = ? WHERE id = ?"
-                    );
-                    $updateQuery->execute([$hashedPassword, $user['id']]);
+                    $q = $db->prepare("SELECT id, prenom, email FROM membre WHERE email = ? AND confirm = 1 LIMIT 1");
+                    $q->execute([$recoveryEmail]);
+                    $member = $q->fetch();
 
-                    $subject = 'Réinitialisation de votre mot de passe - DAHIRA';
-                    $message = "
-                        <html>
-                        <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                            <h2>Réinitialisation de votre mot de passe</h2>
-                            <p>Bonjour {$user['prenom']} {$user['nom']},</p>
-                            <p>Nous avons bien réinitialisé votre mot de passe.</p>
-                            <p>Votre nouveau mot de passe temporaire est : <strong>{$temporaryPassword}</strong></p>
-                            <p>Merci de vous reconnecter et de le modifier dès que possible pour sécuriser votre compte.</p>
-                            <p>Numéro de compte : <strong>{$user['num']}</strong></p>
-                            <p>Merci pour votre confiance,<br>DAHIRA NDIAPANDAL BOU SERIGNE SALIOU MBACKE</p>
-                        </body>
-                        </html>
-                    ";
+                    if ($member) {
+                        $token = bin2hex(random_bytes(32));
+                        $db->prepare(
+                            "UPDATE membre SET reset_token_hash = ?, reset_expires_at = ? WHERE id = ?"
+                        )->execute([hash('sha256', $token), date('Y-m-d H:i:s', time() + 3600), $member['id']]);
 
-                    $emailSent = envoyerMail($user['email'], $subject, $message);
-
-                    if ($emailSent) {
-                        $recoveryMessage = 'Un nouveau mot de passe temporaire a été envoyé à votre adresse e-mail.';
-                    } else {
-                        $recoveryMessage = 'Nous avons bien retrouvé votre compte, mais l’e-mail de récupération n’a pas pu être envoyé. Merci de contacter l’administration pour finaliser la procédure.';
+                        $url = appBaseUrl() . '/reset_password.php?token=' . $token;
+                        if (!envoyerLienReinitialisation($member['email'], (string) $member['prenom'], $url)) {
+                            $info = '';
+                            $error = "L'e-mail n'a pas pu être envoyé pour le moment. Veuillez réessayer dans quelques instants.";
+                        }
+                    }
+                    if ($error === '') {
+                        $info = $genericInfo;
                     }
                 }
-            } catch (Throwable $e) {
-                error_log('Erreur récupération mot de passe: ' . $e->getMessage());
-                $recoveryError = 'Une petite erreur s’est produite. Merci de réessayer dans un instant.';
-            }
-        }
-    } else {
-        $email = securisation($_POST['email'] ?? '');
-        $passeword = securisation($_POST['passeword'] ?? '');
 
-        try {
-            $connexion = getDatabaseConnection();
-            $user = verifyUser($connexion, $email, $passeword);
-
-            // Gérer les erreurs spécifiques
-            if (is_array($user) && isset($user['error'])) {
-                if ($user['error'] === 'compte_non_confirme') {
-                    $error = "Votre compte n’a pas encore été confirmé. Merci de vérifier votre e-mail.";
-                } else {
-                    $error = "Une petite erreur s’est produite. Merci de réessayer.";
-                }
-            } elseif ($user) {
-                // Connexion réussie - régénérer l'ID de session
-                session_regenerate_id(true);
-                
-                // Stocker les informations en session
-                $_SESSION['number'] = $user['num'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['logged_in'] = true;
-
-                header('Location: accueil.php');
-                exit;
+            /* ── Connexion ───────────────────────────────────────────── */
             } else {
-                $error = "Email ou mot de passe incorrect";
-            }
+                $email = strtolower(securisation($_POST['email'] ?? ''));
+                $password = (string) ($_POST['passeword'] ?? '');
 
+                if ($email === '' || $password === '') {
+                    $error = 'Veuillez renseigner votre e-mail et votre mot de passe.';
+                } elseif (attemptsBlocked($db, $email)) {
+                    $error = 'Trop de tentatives échouées. Réessayez dans quelques minutes ou réinitialisez votre mot de passe.';
+                } else {
+                    $q = $db->prepare("SELECT id, num, email, passeword, confirm FROM membre WHERE email = ? LIMIT 1");
+                    $q->execute([$email]);
+                    $user = $q->fetch();
+
+                    if (!$user || !password_verify($password, (string) $user['passeword'])) {
+                        recordAttempt($db, $email);
+                        $error = 'E-mail ou mot de passe incorrect.';
+                    } elseif ((int) $user['confirm'] !== 1) {
+                        // Mot de passe correct mais compte non confirmé : on propose de saisir le code.
+                        $_SESSION['pending_verification'] = ['num' => $user['num'], 'email' => $user['email']];
+                        flash('info', "Votre compte n'est pas encore confirmé. Saisissez le code reçu par e-mail ou demandez-en un nouveau.");
+                        redirect('verify_otp.php');
+                    } else {
+                        clearAttempts($db, $email);
+                        session_regenerate_id(true); // protège contre la fixation de session
+                        $_SESSION['logged_in'] = true;
+                        $_SESSION['number'] = $user['num'];
+                        $_SESSION['email'] = $user['email'];
+                        $_SESSION['user_id'] = (int) $user['id'];
+
+                        $db->prepare("UPDATE membre SET statut_en_ligne = 1, derniere_connexion = NOW() WHERE id = ?")
+                           ->execute([$user['id']]);
+
+                        redirect('accueil.php');
+                    }
+                }
+            }
         } catch (Throwable $e) {
-            error_log("Erreur de connexion: " . $e->getMessage());
-            $error = "Une petite erreur s’est produite. Merci de réessayer.";
+            error_log('Erreur index.php : ' . $e->getMessage());
+            $error = 'Une erreur est survenue. Veuillez réessayer.';
         }
-    }
-} else {
-    // Si l'utilisateur est déjà connecté, le rediriger vers la page d'accueil
-    if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-        header('Location: accueil.php');
-        exit;
     }
 }
+
+renderAuthHead('Connexion', 'Connexion');
 ?>
+<?php renderFlashes(); ?>
+<?php if ($error !== ''): ?>
+    <div class="alert alert-error" role="alert"><?= icon('alert-circle') ?><span><?= e($error) ?></span></div>
+<?php endif; ?>
+<?php if ($info !== ''): ?>
+    <div class="alert alert-success" role="status"><?= icon('check-circle') ?><span><?= e($info) ?></span></div>
+<?php endif; ?>
 
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Espace membre</title>
-    <link rel="stylesheet" href="assets/css/daara-theme.css">
-     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(181, 139, 69, 0.18), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(22, 54, 79, 0.15), transparent 30%),
-                linear-gradient(135deg, #111111 0%, #181818 28%, #f3efe7 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        /* Animations de fond */
-        .bg-animation {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: 0;
-        }
-        
-        .circle {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(21, 45, 62, 0.05);
-            animation: float 20s infinite ease-in-out;
-        }
-        
-        .circle:nth-child(1) {
-            width: 300px;
-            height: 300px;
-            top: -150px;
-            left: -150px;
-            animation-delay: 0s;
-        }
-        
-        .circle:nth-child(2) {
-            width: 200px;
-            height: 200px;
-            bottom: -100px;
-            right: -100px;
-            animation-delay: 2s;
-        }
-        
-        .circle:nth-child(3) {
-            width: 150px;
-            height: 150px;
-            top: 50%;
-            right: 10%;
-            animation-delay: 4s;
-        }
-        
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(0) rotate(0deg);
-                opacity: 0.3;
-            }
-            50% {
-                transform: translateY(-30px) rotate(180deg);
-                opacity: 0.6;
-            }
-        }
-        
-        .container {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 470px;
-            animation: slideUp 0.8s ease-out;
-        }
-        
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .form {
-            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(249,247,243,0.96) 100%);
-            border: 1px solid rgba(181, 139, 69, 0.2);
-            border-radius: 26px;
-            padding: 34px 30px 26px;
-            box-shadow: 0 28px 70px rgba(17,17,17,0.2), 0 10px 25px rgba(22, 54, 79, 0.08);
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(4px);
-        }
-        
-        .form::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, #111111, #b58b45, #d6b57f, #111111);
-            background-size: 200% 100%;
-            animation: shimmer 4s linear infinite;
-        }
-        
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-        
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-            animation: fadeIn 1s ease-out 0.3s both;
-        }
-        
-        .logo-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 88px;
-            height: 88px;
-            background: linear-gradient(135deg, #111111 0%, #1d1d1d 100%);
-            border: 2px solid rgba(181, 139, 69, 0.7);
-            border-radius: 50%;
-            box-shadow: 0 14px 25px rgba(181, 139, 69, 0.2);
-            margin: 0 auto 18px;
-        }
-        
-        .logo-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #B58B45, #d6b57f);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-            font-size: 40px;
-            overflow: hidden;
-            animation: none !important;
-            transform: none !important;
-        }
-        .logo-icon img {
-            width: 100%;
-            height: 100%;
-            display: block;
-            object-fit: cover;
-            border-radius: 50%;
-            animation: none !important;
-            transform: none !important;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .title {
-            text-align: center;
-            color: #111111;
-            font-size: 30px;
-            font-weight: 800;
-            letter-spacing: 0.02em;
-            margin-bottom: 10px;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #6b655d;
-            font-size: 12px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            margin-bottom: 28px;
-            font-weight: 700;
-        }
-        
-        .error-message {
-            background: #ffebee;
-            color: #c62828;
-            padding: 12px 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #c62828;
-            animation: shake 0.5s;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-        
-        .flex {
-            margin-bottom: 20px;
-            animation: fadeIn 1s ease-out both;
-        }
-        
-        .flex:nth-child(2) { animation-delay: 0.1s; }
-        .flex:nth-child(3) { animation-delay: 0.2s; }
-        .flex:nth-child(4) { animation-delay: 0.3s; }
-        
-        label {
-            display: block;
-            color: #111111;
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        
-        .input-wrapper {
-            position: relative;
-        }
-        
-        .input {
-            width: 100%;
-            height: 52px;
-            padding: 14px 45px 14px 15px;
-            border: 1.5px solid rgba(39, 74, 92, 0.22);
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: #f7f7f5;
-            color: #111111;
-        }
-        
-        .input:focus {
-            outline: none;
-            border-color: #16364f;
-            background: #FFFFFF;
-            transform: translateY(-1px);
-            box-shadow: 0 8px 18px rgba(22, 54, 79, 0.10);
-        }
-        
-        .input-icon {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #B58B45;
-            font-size: 20px;
-        }
-        
-        .button-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-top: 30px;
-        }
-        
-        #submit,
-        #reset,
-        .recovery-submit {
-            min-height: 52px;
-            width: 100%;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: 0.01em;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        #submit {
-            background: linear-gradient(135deg, #111111 0%, #1d1d1d 45%, #b58b45 100%);
-            color: #FFFFFF;
-            border: none;
-            padding: 14px 18px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 14px 22px rgba(17,17,17,0.18);
-        }
-        
-        #submit::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-        
-        #submit:hover::before {
-            width: 300px;
-            height: 300px;
-        }
-        
-        #submit:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(31, 94, 67, 0.3);
-        }
-        
-        #submit:active {
-            transform: translateY(-1px);
-        }
-        
-        #reset {
-            background: #f0ede8;
-            color: #1b2d38;
-            border: 1.5px solid rgba(22, 54, 79, 0.2);
-            padding: 14px 18px;
-        }
-        
-        #reset:hover {
-            background: #d8d1c8;
-            color: #1b2d38;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 18px rgba(22, 54, 79, 0.10);
-        }
-        
-        .register-link {
-            text-align: center;
-            margin-top: 25px;
-            color: #1d1d1d;
-            font-size: 14px;
-        }
-        
-        .register-link a {
-            color: #B58B45;
-            text-decoration: none;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        
-        .register-link a::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: #B58B45;
-            transition: width 0.3s ease;
-        }
-        
-        .register-link a:hover::after {
-            width: 100%;
-        }
-        
-        .register-link a:hover {
-            color: #111111;
-        }
+<form method="post" action="index.php" id="loginForm" data-loading="Connexion…">
+    <?= csrfField() ?>
+    <input type="hidden" name="action" value="login">
 
-        .recovery-actions {
-            width: 100%;
-            max-width: 450px;
-            margin: 18px auto 0;
-            text-align: center;
-        }
-
-        .recovery-note {
-            text-align: center;
-            margin-top: 18px;
-            color: #4A4A4A;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .forgot-password-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(22, 54, 79, 0.04);
-            border: 1px solid rgba(22, 54, 79, 0.15);
-            color: #1d4961;
-            font-weight: 700;
-            cursor: pointer;
-            padding: 10px 18px;
-            margin-top: 12px;
-            border-radius: 999px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .forgot-password-btn:hover {
-            color: #16364f;
-            background: rgba(22, 54, 79, 0.08);
-            transform: translateY(-1px);
-        }
-
-        .recovery-container {
-            display: none;
-            margin-top: 20px;
-            padding: 18px 16px 8px;
-            border: 1px solid rgba(22, 54, 79, 0.12);
-            background: rgba(245, 242, 237, 0.8);
-            border-radius: 16px;
-            text-align: left;
-        }
-
-        .recovery-container.visible {
-            display: block;
-        }
-
-        .recovery-form {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            width: 100%;
-        }
-
-        .recovery-form .input {
-            margin-bottom: 0;
-        }
-
-        .recovery-submit {
-            background: linear-gradient(135deg, #1d4961, #2a5e7d);
-            color: #ffffff;
-            border: none;
-            padding: 12px 18px;
-            margin-top: 4px;
-            box-shadow: 0 10px 20px rgba(29, 73, 97, 0.16);
-        }
-
-        .recovery-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(29, 73, 97, 0.22);
-        }
-
-        .success-message {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-left: 4px solid #2e7d32;
-            padding: 12px 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-
-        .warning-message {
-            background: #fff3e0;
-            color: #ef6c00;
-            border-left: 4px solid #ef6c00;
-            padding: 12px 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-        
-        /* Footer */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(17, 17, 17, 0.9);
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-size: 12px;
-            opacity: 0.9;
-            z-index: 10;
-            border-top: 2px solid rgba(181, 139, 69, 0.75);
-        }
-        
-        /* Animation du bouton de soumission en chargement */
-        .loading {
-            pointer-events: none;
-            opacity: 0.7;
-        }
-        
-        .loading::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            top: 50%;
-            left: 50%;
-            margin-left: -10px;
-            margin-top: -10px;
-            border: 3px solid #F2F2F2;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-    </style>
-   
-</head>
-<body>
-    <div class="bg-animation">
-        <div class="circle"></div>
-        <div class="circle"></div>
-        <div class="circle"></div>
+    <div class="field">
+        <label for="email">Adresse e-mail</label>
+        <input type="email" id="email" name="email" value="<?= e($email) ?>" placeholder="exemple@email.com"
+               autocomplete="email" inputmode="email" autocapitalize="none" required>
     </div>
-    
-    <!-- Footer -->
-    <div class="footer">
-         Conçu par BICHRY_DEV © <?php echo date('Y'); ?>
-    </div>
-    
-    <div class="container">
-        <form method="post" class="form" action="" id="loginForm">
-            <div class="logo">
-                <div class="logo-badge">
-                    <div class="logo-icon">
-                        <img src="bmh1.jpeg" alt="Logo">
-                    </div>
-                </div>
-                <p class="title">Dalal ak Diam Muride</p>
-                <p class="subtitle">Accès sécurisé</p>
-            </div>
-            
-            <?php if (!empty($error)): ?>
-                <div class="error-message" id="errorMessage">
-                    <?php echo htmlspecialchars($error); ?>
-                </div>
-            <?php endif; ?>
 
-            <?php if (!empty($recoveryMessage)): ?>
-                <div class="success-message" id="recoveryMessageBox">
-                    <?php echo htmlspecialchars($recoveryMessage); ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if (!empty($recoveryError)): ?>
-                <div class="warning-message" id="recoveryErrorBox">
-                    <?php echo htmlspecialchars($recoveryError); ?>
-                </div>
-            <?php endif; ?>
-            
-            <div class="flex">
-                <label for="email">Adresse e-mail</label>
-                <div class="input-wrapper">
-                    <input 
-                        type="email" 
-                        name="email" 
-                        id="email" 
-                        class="input" 
-                        placeholder="Votre adresse e-mail" 
-                        value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" 
-                        required
-                        autocomplete="email">
-                    <span class="input-icon"></span>
-                </div>
-            </div>
-            
-            <div class="flex">
-                <label for="password">Mot de passe</label>
-                <div class="input-wrapper">
-                    <input 
-                        type="password" 
-                        name="passeword" 
-                        id="password" 
-                        class="input" 
-                        placeholder="Votre mot de passe" 
-                        required
-                        autocomplete="current-password">
-                    <span class="input-icon"></span>
-                </div>
-            </div>
-            
-            <div class="button-group">
-                <button type="submit" id="submit">Se connecter</button>
-                <button type="reset" id="reset">Effacer</button>
-            </div>
-            
-            <p class="register-link">
-                Vous n’avez pas encore de compte ? <a href="form.php">Créer mon compte</a>
-            </p>
-        </form>
-
-        <div class="recovery-actions">
-            <button type="button" class="forgot-password-btn" id="forgotPasswordBtn">
-                J’ai oublié mon mot de passe
-            </button>
-
-            <div class="recovery-container" id="recoveryContainer">
-                <form method="post" class="recovery-form" id="recoveryForm">
-                    <input type="hidden" name="action" value="recover_password">
-                    <label for="recovery_identifier">Email</label>
-                    <input 
-                        type="email" 
-                        name="recovery_identifier" 
-                        id="recovery_identifier" 
-                        class="input" 
-                        placeholder="Entrez votre email" 
-                        required>
-                    <button type="submit" class="recovery-submit">Récupérer mes informations</button>
-                </form>
-            </div>
+    <div class="field">
+        <label for="passeword">Mot de passe</label>
+        <div class="input-group">
+            <input type="password" id="passeword" name="passeword" placeholder="Votre mot de passe"
+                   autocomplete="current-password" required>
+            <button type="button" class="toggle-pass" data-toggle-pass="passeword" aria-label="Afficher le mot de passe"><?= icon('eye') ?></button>
         </div>
     </div>
-    
-    <script>
-        const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
-        const recoveryContainer = document.getElementById('recoveryContainer');
 
-        if (forgotPasswordBtn && recoveryContainer) {
-            forgotPasswordBtn.addEventListener('click', function() {
-                recoveryContainer.classList.toggle('visible');
-                if (recoveryContainer.classList.contains('visible')) {
-                    document.getElementById('recovery_identifier').focus();
-                }
-            });
-        }
+    <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+</form>
 
-        // Animation de chargement lors de la soumission
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const submitBtn = document.getElementById('submit');
-            submitBtn.classList.add('loading');
-            submitBtn.textContent = 'Connexion...';
-        });
+<p class="auth-links">
+    <button type="button" class="btn btn-ghost btn-sm" data-modal-open="recoveryModal">Mot de passe oublié ?</button>
+</p>
+<p class="auth-links mt-0">Pas encore de compte ? <a href="form.php">Créer un compte</a></p>
 
-        const recoveryForm = document.getElementById('recoveryForm');
-        if (recoveryForm) {
-            recoveryForm.addEventListener('submit', function() {
-                const button = this.querySelector('button[type="submit"]');
-                if (button) {
-                    button.textContent = 'Vérification...';
-                }
-            });
-        }
-        
-        // Animation des inputs au focus
-        const inputs = document.querySelectorAll('.input');
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.style.transform = 'scale(1.02)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.parentElement.style.transform = 'scale(1)';
-            });
-            
-            // Animation de typing
-            input.addEventListener('input', function() {
-                this.style.transform = 'scale(1.01)';
-                setTimeout(() => {
-                    this.style.transform = 'scale(1)';
-                }, 100);
-            });
-        });
-        
-        // Masquer le message d'erreur après 5 secondes
-        const errorMessage = document.getElementById('errorMessage');
-        if (errorMessage) {
-            setTimeout(() => {
-                errorMessage.style.animation = 'fadeOut 0.5s ease-out';
-                setTimeout(() => {
-                    errorMessage.style.display = 'none';
-                }, 500);
-            }, 5000);
-        }
-        
-        // Animation fadeOut
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeOut {
-                from { opacity: 1; transform: translateY(0); }
-                to { opacity: 0; transform: translateY(-10px); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Effet de particules au survol du bouton
-        const submitBtn = document.getElementById('submit');
-        submitBtn.addEventListener('mouseenter', function(e) {
-            const rect = this.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            const ripple = document.createElement('span');
-            ripple.style.cssText = `
-                position: absolute;
-                width: 10px;
-                height: 10px;
-                background: rgba(255,255,255,0.5);
-                border-radius: 50%;
-                pointer-events: none;
-                left: ${x}px;
-                top: ${y}px;
-                transform: translate(-50%, -50%) scale(0);
-                animation: ripple 0.6s ease-out;
-            `;
-            this.appendChild(ripple);
-            
-            setTimeout(() => ripple.remove(), 600);
-        });
-        
-        // Animation ripple
-        const rippleStyle = document.createElement('style');
-        rippleStyle.textContent = `
-            @keyframes ripple {
-                to {
-                    transform: translate(-50%, -50%) scale(4);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(rippleStyle);
-    </script>
-</body>
-</html>
+<div class="modal<?= $showRecovery ? ' is-open' : '' ?>" id="recoveryModal" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle" aria-hidden="<?= $showRecovery ? 'false' : 'true' ?>">
+    <div class="modal__backdrop" data-modal-close></div>
+    <div class="modal__dialog modal__dialog--sm">
+        <div class="modal__body">
+            <h2 class="modal__title" id="recoveryTitle">Mot de passe oublié</h2>
+            <p class="text-muted">Saisissez l'adresse e-mail de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe.</p>
+            <form method="post" action="index.php" data-loading="Envoi…">
+                <?= csrfField() ?>
+                <input type="hidden" name="action" value="recover_password">
+                <div class="field">
+                    <label for="recovery_email">Adresse e-mail</label>
+                    <input type="email" id="recovery_email" name="recovery_email" placeholder="exemple@email.com"
+                           autocomplete="email" autocapitalize="none" required data-autofocus>
+                </div>
+                <div class="modal__actions">
+                    <button type="button" class="btn btn-outline" data-modal-close>Annuler</button>
+                    <button type="submit" class="btn btn-primary">Envoyer le lien</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php
+renderAuthFoot();

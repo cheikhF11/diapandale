@@ -1,30 +1,26 @@
 <?php
 /**
- * Endpoint appelé toutes les 2 minutes en arrière-plan (voir accueil.php)
- * pour maintenir à jour le statut "en ligne" / "dernière connexion" du membre.
+ * Appelé toutes les 2 minutes en arrière-plan (voir app.js) pour maintenir le
+ * statut « en ligne » du membre. Renouvelle aussi la session persistante.
  */
-session_start();
+require_once __DIR__ . '/config/app.php';
 
-require_once __DIR__ . '/dataBase/bd.php';
-
-header('Content-Type: application/json');
-
-if (!isset($_SESSION['number']) || !isset($_SESSION['logged_in'])) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'non_connecte']);
-    exit;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jsonResponse(['success' => false, 'error' => 'methode'], 405);
+}
+if (empty($_SESSION['number']) || empty($_SESSION['logged_in'])) {
+    jsonResponse(['success' => false, 'error' => 'non_connecte'], 401);
+}
+if (!csrfValid()) {
+    jsonResponse(['success' => false, 'error' => 'csrf'], 403);
 }
 
 try {
-    $connexion = getDatabaseConnection();
-    $query = $connexion->prepare(
-        "UPDATE membre SET statut_en_ligne = 1, derniere_connexion = NOW() WHERE num = ?"
-    );
-    $query->execute([$_SESSION['number']]);
-
-    echo json_encode(['success' => true]);
+    getDatabaseConnection()
+        ->prepare("UPDATE membre SET statut_en_ligne = 1, derniere_connexion = NOW() WHERE num = ?")
+        ->execute([(string) $_SESSION['number']]);
+    jsonResponse(['success' => true]);
 } catch (Throwable $e) {
-    error_log('Erreur update_online_status: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false]);
+    error_log('update_online_status : ' . $e->getMessage());
+    jsonResponse(['success' => false], 500);
 }

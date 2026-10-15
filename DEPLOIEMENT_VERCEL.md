@@ -82,6 +82,8 @@ Sur Vercel il n'y a **pas de fichier `.env`** : les identifiants se saisissent d
 | `SMTP_PASSWORD` | **mot de passe d'application** Gmail (16 caractères) | ✅ |
 | `SMTP_FROM_NAME` | `Dahira Ndiapandal Bou Serigne Saliou Mbacke` | ✅ |
 | `SMTP_FROM_EMAIL` | adresse expéditrice (celle de `SMTP_USERNAME` avec Gmail) | ✅ |
+| `APP_URL` | adresse publique du site, ex. `https://diap.vercel.app` (sans `/` final) : utilisée dans le lien « mot de passe oublié » | recommandé |
+| `MAIL_BATCH_SIZE` | destinataires par message groupé de la messagerie (25 par défaut, 50 max) | non |
 
 À savoir :
 - **Pas de guillemets** autour des valeurs dans l'interface Vercel (contrairement au fichier `.env`).
@@ -169,3 +171,22 @@ et a transité dans l'archive partagée. Par prudence :
 - **révoquez et régénérez le mot de passe d'application Gmail** (Compte Google → Sécurité → Mots de passe d'application) ;
 - changez le mot de passe de la base InfinityFree si vous la conservez ;
 - ne publiez jamais `.env` (il est exclu par `.gitignore` et `.vercelignore`).
+
+
+---
+
+## 9. 🆕 Mise à jour : photos, adresse, messagerie
+
+1. **Base de données** : rien à importer. À la première connexion après le déploiement, le site crée lui-même
+   les tables `membre_photo`, `message_campagne`, `tentatives_connexion` et ajoute les colonnes manquantes
+   (`adresse`, `a_photo`, …) **sans toucher à vos membres existants**. Si votre utilisateur MySQL n'a pas les droits
+   `ALTER`/`CREATE`, exécutez `database_migration.sql` une fois.
+2. **Photos** : elles sont stockées en base (le disque de Vercel est éphémère) ; elles sont recadrées à 480 px
+   dans le navigateur, donc légères. Les membres déjà inscrits voient leurs initiales jusqu'à ce qu'ils ajoutent
+   leur photo depuis **Mon profil**.
+3. **Messagerie** : l'envoi se fait par lots (barre de progression) afin de rester sous la limite de 30 s de Vercel.
+   Vérifiez que `SMTP_*` est correct. Gmail limite à ~500 destinataires par jour : au-delà, utilisez un SMTP
+   professionnel (Brevo, Mailjet, OVH…).
+4. **Session** : le membre reste connecté 30 jours (session en base, renouvelée à chaque visite).
+5. Les anciens fichiers de test ont été retirés : plus aucun code n'est affiché à l'écran si l'e-mail échoue
+   (un bouton « Renvoyer le code » est proposé).
